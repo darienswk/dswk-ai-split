@@ -1,38 +1,935 @@
-.App {
+/* ==================== Reset & Base ==================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0f1117;
+  --bg-card: #1a1d27;
+  --bg-card-hover: #222633;
+  --bg-input: #252936;
+  --border: #2e3348;
+  --text: #e4e6f0;
+  --text-dim: #8b8fa3;
+  --primary: #6c5ce7;
+  --primary-hover: #7c6ff7;
+  --success: #00b894;
+  --danger: #e74c3c;
+  --danger-hover: #c0392b;
+  --warning: #fdcb6e;
+  --positive: #00b894;
+  --negative: #e74c3c;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ==================== App Shell ==================== */
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.logo-icon {
+  color: var(--primary);
+  font-size: 1.5rem;
+}
+
+.app-main {
+  flex: 1;
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* ==================== Buttons ==================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.btn-secondary {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-card-hover);
+}
+
+.btn-back {
+  background: none;
+  color: var(--text-dim);
+  padding: 0.25rem 0;
+  margin-bottom: 1rem;
+}
+
+.btn-back:hover {
+  color: var(--text);
+}
+
+.btn-lg {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.btn-close {
+  background: none;
+  color: var(--text-dim);
+  font-size: 1.5rem;
+  padding: 0;
+  line-height: 1;
+}
+
+.btn-close:hover {
+  color: var(--text);
+}
+
+.btn-danger-sm {
+  background: none;
+  color: var(--danger);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  border: 1px solid transparent;
+}
+
+.btn-danger-sm:hover {
+  border-color: var(--danger);
+  background: rgba(231, 76, 60, 0.1);
+}
+
+.btn-add-member {
+  background: var(--bg-input);
+  border: 1px dashed var(--border);
+}
+
+/* ==================== Page Header ==================== */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+  font-size: 1.5rem;
+}
+
+/* ==================== Empty State ==================== */
+.empty-state {
+  text-align: center;
+  padding: 4rem 1rem;
+  color: var(--text-dim);
+}
+
+.empty-state.small {
+  padding: 2rem 1rem;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h2 {
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+
+/* ==================== Trip Cards ==================== */
+.trip-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.trip-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.trip-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--primary);
+}
+
+.trip-card.settled {
+  opacity: 0.7;
+}
+
+.trip-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.trip-card-header h3 {
+  font-size: 1.1rem;
+}
+
+.trip-desc {
+  color: var(--text-dim);
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.trip-card-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.825rem;
+  color: var(--text-dim);
+  margin-top: 0.5rem;
+}
+
+.trip-card-date {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 0.5rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-settled {
+  background: rgba(0, 184, 148, 0.15);
+  color: var(--success);
+  margin-left: 0.5rem;
+}
+
+/* ==================== Create Trip Form ==================== */
+.create-trip {
+  max-width: 540px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.form-group label {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.form-group input,
+.form-group select {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 0.625rem 0.75rem;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.form-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.member-input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.member-input-row input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 0.625rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.member-input-row input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.member-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.member-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.member-tag button {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.25rem;
+}
+
+.member-tag button:hover {
+  color: var(--danger);
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: 0.25rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+/* ==================== Trip Detail ==================== */
+.trip-detail-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.trip-detail-header .btn-back {
+  margin-bottom: 0;
+}
+
+.trip-detail-title {
+  flex: 1;
+}
+
+.trip-detail-title h1 {
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+}
+
+/* Members bar */
+.members-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 0;
+  margin: 0.75rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.members-label {
+  font-size: 0.825rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.member-chip {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.add-member-inline {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.add-member-inline input {
+  width: 120px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.add-member-inline input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* ==================== Tabs ==================== */
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  padding: 0.75rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* ==================== Expense List ==================== */
+.expense-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.expense-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+}
+
+.expense-main {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.expense-info h4 {
+  font-size: 0.95rem;
+  margin-bottom: 0.15rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.expense-category {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 99px;
+  background: rgba(108, 92, 231, 0.15);
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.expense-meta {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.expense-amount {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.expense-amount .amount {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.expense-amount .currency-code {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.btn-delete-expense {
+  flex-shrink: 0;
+  font-size: 1.1rem !important;
+}
+
+/* ==================== Modal ==================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 1rem;
+}
+
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.modal-header h2 {
+  font-size: 1.2rem;
+}
+
+.split-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.65rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.checkbox-label:has(input:checked) {
+  border-color: var(--primary);
+  background: rgba(108, 92, 231, 0.1);
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: var(--primary);
+}
+
+/* ==================== Balance Summary ==================== */
+.balance-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.currency-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.currency-title {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.total-tag {
+  background: var(--bg-input);
+  padding: 0.15rem 0.5rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.balance-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.balance-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+}
+
+.balance-card.positive .balance-amount {
+  color: var(--positive);
+}
+
+.balance-card.negative .balance-amount {
+  color: var(--negative);
+}
+
+.balance-card.zero .balance-amount {
+  color: var(--text-dim);
+}
+
+.balance-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.balance-amount {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.debts-section {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.debts-section h4 {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+}
+
+.debt-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.debt-from {
+  font-weight: 600;
+  color: var(--negative);
+}
+
+.debt-arrow {
+  color: var(--text-dim);
+}
+
+.debt-to {
+  font-weight: 600;
+  color: var(--positive);
+}
+
+.debt-amount {
+  margin-left: auto;
+  font-weight: 700;
+}
+
+/* ==================== Settle Up ==================== */
+.settle-up {
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.settle-up h2 {
+  margin-bottom: 0.5rem;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.settle-description {
+  color: var(--text-dim);
+  margin-bottom: 1.5rem;
 }
 
-.App-header {
-  background-color: #282c34;
+.settle-debts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.settle-debt-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.settle-debt-people {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settle-from {
+  font-weight: 700;
+  color: var(--negative);
+}
+
+.settle-arrow {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.settle-to {
+  font-weight: 700;
+  color: var(--positive);
+}
+
+.settle-debt-amount {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.settle-debt-amount .currency-code {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.settled-banner {
+  padding: 2rem 1rem;
+}
+
+.settled-icon {
+  font-size: 3rem;
+  color: var(--success);
+  margin-bottom: 0.5rem;
+}
+
+.settlement-records {
+  margin-top: 1.5rem;
+  text-align: left;
+}
+
+.settlement-records h3 {
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+.settled-row {
+  opacity: 0.7;
+}
+
+.all-settled {
+  padding: 2rem;
+  color: var(--success);
+}
+
+/* ==================== Auth & Loading ==================== */
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 1rem;
+}
+
+.login-card {
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3rem 2.5rem;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: var(--shadow);
+}
+
+.login-icon {
+  font-size: 3rem;
+  color: var(--primary);
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.login-card h1 {
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.login-card p {
+  color: var(--text-dim);
+  margin-bottom: 2rem;
+}
+
+.btn-google {
+  width: 100%;
+}
+
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.header-name {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.loading-screen {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  background: var(--bg);
+  color: var(--text-dim);
+  gap: 1rem;
 }
 
-.App-link {
-  color: #61dafb;
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
+@keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* ==================== Responsive ==================== */
+@media (max-width: 600px) {
+  .app-main {
+    padding: 1rem;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+
+  .settle-debt-card {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+
+  .expense-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .expense-amount {
+    text-align: left;
   }
 }
