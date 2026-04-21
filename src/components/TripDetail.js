@@ -5,6 +5,7 @@ import { formatMoney } from "../utils/currencies";
 import AddExpense from "./AddExpense";
 import BalanceSummary from "./BalanceSummary";
 import SettleUp from "./SettleUp";
+import SpendingSummary from "./SpendingSummary";
 
 export default function TripDetail() {
   const { state, dispatch } = useApp();
@@ -120,6 +121,12 @@ export default function TripDetail() {
           Expenses ({trip.expenses.length})
         </button>
         <button
+          className={`tab ${activeTab === "spending" ? "active" : ""}`}
+          onClick={() => setActiveTab("spending")}
+        >
+          Spending
+        </button>
+        <button
           className={`tab ${activeTab === "balances" ? "active" : ""}`}
           onClick={() => setActiveTab("balances")}
         >
@@ -196,6 +203,8 @@ export default function TripDetail() {
             )}
           </div>
         )}
+
+        {activeTab === "spending" && <SpendingSummary trip={trip} />}
 
         {activeTab === "balances" && (
           <BalanceSummary trip={trip} perCurrency={perCurrency} memberMap={memberMap} />

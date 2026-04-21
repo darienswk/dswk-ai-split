@@ -822,6 +822,117 @@ body {
   color: var(--success);
 }
 
+/* ==================== Spending Summary ==================== */
+.spending-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.spending-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.spending-filter label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.spending-filter select {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.spending-filter select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.spending-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.spending-member-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.spending-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.spending-header h3 {
+  font-size: 1rem;
+}
+
+.spending-total {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.spending-empty {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.spending-body {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.spending-legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  flex: 1;
+  color: var(--text);
+}
+
+.legend-value {
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+@media (max-width: 600px) {
+  .spending-body {
+    flex-direction: column;
+  }
+}
+
 /* ==================== Auth & Loading ==================== */
 .login-screen {
   min-height: 100vh;
