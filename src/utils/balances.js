@@ -7,7 +7,7 @@ export function calculateNetBalances(expenses, members) {
   members.forEach((m) => (balances[m.id] = 0));
 
   expenses.forEach((expense) => {
-    const { paidBy, amount, splitAmong, currency } = expense;
+    const { paidBy, amount, splitAmong } = expense;
     if (!splitAmong || splitAmong.length === 0) return;
 
     const share = amount / splitAmong.length;

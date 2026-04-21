@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { calculatePerCurrencyBalances } from "../utils/balances";
-import { formatMoney, getCurrencySymbol } from "../utils/currencies";
+import { formatMoney } from "../utils/currencies";
 import AddExpense from "./AddExpense";
 import BalanceSummary from "./BalanceSummary";
 import SettleUp from "./SettleUp";
