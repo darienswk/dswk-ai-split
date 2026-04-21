@@ -855,6 +855,12 @@ body {
   border-color: var(--primary);
 }
 
+.spending-currency-note {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
 .spending-grid {
   display: flex;
   flex-direction: column;

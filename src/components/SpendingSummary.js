@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { formatMoney } from "../utils/currencies";
 
 const CATEGORY_COLORS = {
@@ -10,6 +10,41 @@ const CATEGORY_COLORS = {
   Accommodation: "#e84393",
   Flights: "#00cec9",
 };
+
+function useExchangeRates(baseCurrency) {
+  const [rates, setRates] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchRates() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `https://api.frankfurter.app/latest?base=${baseCurrency}`
+        );
+        if (!res.ok) throw new Error("Failed to fetch rates");
+        const data = await res.json();
+        if (!cancelled) {
+          // Add the base currency itself with rate 1
+          setRates({ ...data.rates, [baseCurrency]: 1 });
+        }
+      } catch (e) {
+        if (!cancelled) setError(e.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchRates();
+    return () => { cancelled = true; };
+  }, [baseCurrency]);
+
+  return { rates, loading, error };
+}
 
 function PieChart({ slices, size = 160 }) {
   const cx = size / 2;
@@ -27,7 +62,6 @@ function PieChart({ slices, size = 160 }) {
     );
   }
 
-  // Single category — full circle
   if (slices.length === 1) {
     return (
       <svg width={size} height={size}>
@@ -68,15 +102,22 @@ function PieChart({ slices, size = 160 }) {
   );
 }
 
-function MemberSpending({ member, expenses, defaultCurrency }) {
+function MemberSpending({ member, expenses, defaultCurrency, rates }) {
   const paidExpenses = expenses.filter((e) => e.paidBy === member.id);
-  const totalSpend = paidExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+  // Convert all to default currency
+  const convertedExpenses = paidExpenses.map((e) => ({
+    ...e,
+    convertedAmount: convertToBase(e.amount, e.currency, rates),
+  }));
+
+  const totalSpend = convertedExpenses.reduce((sum, e) => sum + e.convertedAmount, 0);
 
   // Group by category
   const byCategory = {};
-  paidExpenses.forEach((e) => {
+  convertedExpenses.forEach((e) => {
     const cat = e.category || "General";
-    byCategory[cat] = (byCategory[cat] || 0) + e.amount;
+    byCategory[cat] = (byCategory[cat] || 0) + e.convertedAmount;
   });
 
   const slices = Object.entries(byCategory)
@@ -117,8 +158,14 @@ function MemberSpending({ member, expenses, defaultCurrency }) {
   );
 }
 
+function convertToBase(amount, fromCurrency, rates) {
+  if (!rates || !rates[fromCurrency]) return amount;
+  return amount / rates[fromCurrency];
+}
+
 export default function SpendingSummary({ trip }) {
   const [selectedMember, setSelectedMember] = useState("all");
+  const { rates, loading, error } = useExchangeRates(trip.defaultCurrency);
 
   const membersToShow =
     selectedMember === "all"
@@ -129,6 +176,23 @@ export default function SpendingSummary({ trip }) {
     return (
       <div className="empty-state small">
         <p>No expenses to show spending for.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="empty-state small">
+        <div className="loading-spinner" style={{ margin: "0 auto" }} />
+        <p>Loading exchange rates...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="empty-state small">
+        <p>Failed to load exchange rates. Showing raw amounts.</p>
       </div>
     );
   }
@@ -145,6 +209,9 @@ export default function SpendingSummary({ trip }) {
             </option>
           ))}
         </select>
+        <span className="spending-currency-note">
+          All amounts in {trip.defaultCurrency}
+        </span>
       </div>
 
       <div className="spending-grid">
@@ -154,6 +221,7 @@ export default function SpendingSummary({ trip }) {
             member={m}
             expenses={trip.expenses}
             defaultCurrency={trip.defaultCurrency}
+            rates={rates}
           />
         ))}
       </div>

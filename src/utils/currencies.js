@@ -20,6 +20,7 @@ export const CURRENCIES = [
   { code: "ZAR", symbol: "R", name: "South African Rand" },
   { code: "TRY", symbol: "\u20ba", name: "Turkish Lira" },
   { code: "PLN", symbol: "z\u0142", name: "Polish Zloty" },
+  { code: "MYR", symbol: "RM", name: "Malaysian Ringgit" },
 ];
 
 export function getCurrencySymbol(code) {
