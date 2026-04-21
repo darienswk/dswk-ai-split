@@ -175,7 +175,7 @@ function convertToBase(amount, fromCurrency, rates) {
 
 export default function SpendingSummary({ trip }) {
   const [selectedMember, setSelectedMember] = useState("all");
-  const { rates, loading, error } = useExchangeRates(trip.defaultCurrency);
+  const { rates, loading, error } = useExchangeRates("SGD");
 
   const membersToShow =
     selectedMember === "all"
@@ -221,7 +221,7 @@ export default function SpendingSummary({ trip }) {
         </select>
         {!error && (
           <span className="spending-currency-note">
-            All amounts in {trip.defaultCurrency}
+            All amounts in SGD
           </span>
         )}
       </div>
@@ -232,7 +232,7 @@ export default function SpendingSummary({ trip }) {
             key={m.id}
             member={m}
             expenses={trip.expenses}
-            defaultCurrency={trip.defaultCurrency}
+            defaultCurrency="SGD"
             rates={effectiveRates}
           />
         ))}
