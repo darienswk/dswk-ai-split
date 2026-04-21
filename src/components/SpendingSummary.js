@@ -113,12 +113,13 @@ function PieChart({ slices, size = 160 }) {
 }
 
 function MemberSpending({ member, expenses, defaultCurrency, rates }) {
-  const paidExpenses = expenses.filter((e) => e.paidBy === member.id);
+  // Get expenses this member is part of (split among)
+  const memberExpenses = expenses.filter((e) => e.splitAmong.includes(member.id));
 
-  // Convert all to default currency
-  const convertedExpenses = paidExpenses.map((e) => ({
+  // Calculate each member's share and convert to SGD
+  const convertedExpenses = memberExpenses.map((e) => ({
     ...e,
-    convertedAmount: convertToBase(e.amount, e.currency, rates),
+    convertedAmount: convertToBase(e.amount / e.splitAmong.length, e.currency, rates),
   }));
 
   const totalSpend = convertedExpenses.reduce((sum, e) => sum + e.convertedAmount, 0);
@@ -146,8 +147,8 @@ function MemberSpending({ member, expenses, defaultCurrency, rates }) {
           {formatMoney(totalSpend, defaultCurrency)} {defaultCurrency}
         </span>
       </div>
-      {paidExpenses.length === 0 ? (
-        <p className="spending-empty">No expenses paid</p>
+      {memberExpenses.length === 0 ? (
+        <p className="spending-empty">No expenses</p>
       ) : (
         <div className="spending-body">
           <PieChart slices={slices} />
