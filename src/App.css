@@ -861,6 +861,15 @@ body {
   margin-left: auto;
 }
 
+.spending-rate-warning {
+  font-size: 0.85rem;
+  color: var(--warning);
+  background: rgba(253, 203, 110, 0.1);
+  border: 1px solid rgba(253, 203, 110, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+}
+
 .spending-grid {
   display: flex;
   flex-direction: column;

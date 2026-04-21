@@ -11,6 +11,11 @@ const CATEGORY_COLORS = {
   Flights: "#00cec9",
 };
 
+const RATE_APIS = [
+  (base) => `https://api.frankfurter.dev/v1/latest?base=${base}`,
+  (base) => `https://api.frankfurter.app/latest?base=${base}`,
+];
+
 function useExchangeRates(baseCurrency) {
   const [rates, setRates] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,20 +27,25 @@ function useExchangeRates(baseCurrency) {
     async function fetchRates() {
       setLoading(true);
       setError(null);
-      try {
-        const res = await fetch(
-          `https://api.frankfurter.app/latest?base=${baseCurrency}`
-        );
-        if (!res.ok) throw new Error("Failed to fetch rates");
-        const data = await res.json();
-        if (!cancelled) {
-          // Add the base currency itself with rate 1
-          setRates({ ...data.rates, [baseCurrency]: 1 });
+
+      for (const buildUrl of RATE_APIS) {
+        try {
+          const res = await fetch(buildUrl(baseCurrency));
+          if (!res.ok) continue;
+          const data = await res.json();
+          if (!cancelled) {
+            setRates({ ...data.rates, [baseCurrency]: 1 });
+            setLoading(false);
+          }
+          return;
+        } catch (e) {
+          // Try next API
         }
-      } catch (e) {
-        if (!cancelled) setError(e.message);
-      } finally {
-        if (!cancelled) setLoading(false);
+      }
+
+      if (!cancelled) {
+        setError("Could not fetch exchange rates");
+        setLoading(false);
       }
     }
 
@@ -189,16 +199,16 @@ export default function SpendingSummary({ trip }) {
     );
   }
 
-  if (error) {
-    return (
-      <div className="empty-state small">
-        <p>Failed to load exchange rates. Showing raw amounts.</p>
-      </div>
-    );
-  }
+  // Fall back to rate=1 for everything if API failed (raw amounts)
+  const effectiveRates = rates || { [trip.defaultCurrency]: 1 };
 
   return (
     <div className="spending-summary">
+      {error && (
+        <div className="spending-rate-warning">
+          Could not fetch exchange rates. Amounts in other currencies are shown unconverted.
+        </div>
+      )}
       <div className="spending-filter">
         <label>Show:</label>
         <select value={selectedMember} onChange={(e) => setSelectedMember(e.target.value)}>
@@ -209,9 +219,11 @@ export default function SpendingSummary({ trip }) {
             </option>
           ))}
         </select>
-        <span className="spending-currency-note">
-          All amounts in {trip.defaultCurrency}
-        </span>
+        {!error && (
+          <span className="spending-currency-note">
+            All amounts in {trip.defaultCurrency}
+          </span>
+        )}
       </div>
 
       <div className="spending-grid">
@@ -221,7 +233,7 @@ export default function SpendingSummary({ trip }) {
             member={m}
             expenses={trip.expenses}
             defaultCurrency={trip.defaultCurrency}
-            rates={rates}
+            rates={effectiveRates}
           />
         ))}
       </div>
