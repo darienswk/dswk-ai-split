@@ -12,6 +12,7 @@ export default function TripDetail() {
   const trip = state.trips.find((t) => t.id === state.currentTripId);
   const [activeTab, setActiveTab] = useState("expenses");
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
   const [showAddMember, setShowAddMember] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
 
@@ -161,6 +162,14 @@ export default function TripDetail() {
               />
             )}
 
+            {editingExpense && (
+              <AddExpense
+                trip={trip}
+                expense={editingExpense}
+                onClose={() => setEditingExpense(null)}
+              />
+            )}
+
             {trip.expenses.length === 0 ? (
               <div className="empty-state small">
                 <p>No expenses yet. Add your first expense to start tracking.</p>
@@ -168,7 +177,11 @@ export default function TripDetail() {
             ) : (
               <div className="expense-list">
                 {[...trip.expenses].reverse().map((exp) => (
-                  <div key={exp.id} className="expense-card">
+                  <div
+                    key={exp.id}
+                    className={`expense-card${!trip.isSettled ? " expense-card-editable" : ""}`}
+                    onClick={() => !trip.isSettled && setEditingExpense(exp)}
+                  >
                     <div className="expense-main">
                       <div className="expense-info">
                         <h4>
@@ -192,7 +205,7 @@ export default function TripDetail() {
                     {!trip.isSettled && (
                       <button
                         className="btn btn-danger-sm btn-delete-expense"
-                        onClick={() => handleDeleteExpense(exp.id)}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteExpense(exp.id); }}
                       >
                         &times;
                       </button>

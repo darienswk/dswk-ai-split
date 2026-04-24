@@ -499,6 +499,15 @@ body {
   padding: 1rem;
 }
 
+.expense-card-editable {
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.expense-card-editable:hover {
+  border-color: var(--primary);
+}
+
 .expense-main {
   flex: 1;
   display: flex;

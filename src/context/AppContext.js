@@ -73,6 +73,23 @@ function reducer(state, action) {
       };
     }
 
+    case "EDIT_EXPENSE": {
+      const { tripId: editTripId, expenseId: editExpenseId, updates } = action.payload;
+      return {
+        ...state,
+        trips: state.trips.map((t) =>
+          t.id === editTripId
+            ? {
+                ...t,
+                expenses: t.expenses.map((e) =>
+                  e.id === editExpenseId ? { ...e, ...updates } : e
+                ),
+              }
+            : t
+        ),
+      };
+    }
+
     case "DELETE_EXPENSE": {
       const { tripId: tid, expenseId } = action.payload;
       return {

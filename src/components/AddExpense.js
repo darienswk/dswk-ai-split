@@ -12,14 +12,18 @@ const CATEGORIES = [
   "Flights",
 ];
 
-export default function AddExpense({ trip, onClose }) {
+export default function AddExpense({ trip, onClose, expense }) {
   const { dispatch } = useApp();
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState(trip.defaultCurrency);
-  const [category, setCategory] = useState("General");
-  const [paidBy, setPaidBy] = useState(trip.members[0]?.id || "");
-  const [splitAmong, setSplitAmong] = useState(trip.members.map((m) => m.id));
+  const isEditing = !!expense;
+
+  const [description, setDescription] = useState(expense?.description || "");
+  const [amount, setAmount] = useState(expense ? String(expense.amount) : "");
+  const [currency, setCurrency] = useState(expense?.currency || trip.defaultCurrency);
+  const [category, setCategory] = useState(expense?.category || "General");
+  const [paidBy, setPaidBy] = useState(expense?.paidBy || trip.members[0]?.id || "");
+  const [splitAmong, setSplitAmong] = useState(
+    expense?.splitAmong || trip.members.map((m) => m.id)
+  );
 
   const toggleMember = (memberId) => {
     setSplitAmong((prev) =>
@@ -33,20 +37,38 @@ export default function AddExpense({ trip, onClose }) {
     if (!description.trim() || isNaN(parsedAmount) || parsedAmount <= 0 || splitAmong.length === 0)
       return;
 
-    dispatch({
-      type: "ADD_EXPENSE",
-      payload: {
-        tripId: trip.id,
-        expense: {
-          description: description.trim(),
-          amount: parsedAmount,
-          currency,
-          category,
-          paidBy,
-          splitAmong,
+    if (isEditing) {
+      dispatch({
+        type: "EDIT_EXPENSE",
+        payload: {
+          tripId: trip.id,
+          expenseId: expense.id,
+          updates: {
+            description: description.trim(),
+            amount: parsedAmount,
+            currency,
+            category,
+            paidBy,
+            splitAmong,
+          },
         },
-      },
-    });
+      });
+    } else {
+      dispatch({
+        type: "ADD_EXPENSE",
+        payload: {
+          tripId: trip.id,
+          expense: {
+            description: description.trim(),
+            amount: parsedAmount,
+            currency,
+            category,
+            paidBy,
+            splitAmong,
+          },
+        },
+      });
+    }
     onClose();
   };
 
@@ -57,7 +79,7 @@ export default function AddExpense({ trip, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Add Expense</h2>
+          <h2>{isEditing ? "Edit Expense" : "Add Expense"}</h2>
           <button className="btn btn-close" onClick={onClose}>
             &times;
           </button>
@@ -159,7 +181,7 @@ export default function AddExpense({ trip, onClose }) {
                 splitAmong.length === 0
               }
             >
-              Add Expense
+              {isEditing ? "Save Changes" : "Add Expense"}
             </button>
           </div>
         </form>
