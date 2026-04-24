@@ -1,4 +1,21 @@
 /**
+ * Get the share for a member in an expense, supporting equal/exact/percentage splits.
+ */
+function getMemberShare(expense, memberId) {
+  const { amount, splitAmong, splitType, splitDetails } = expense;
+  if (!splitAmong || !splitAmong.includes(memberId)) return 0;
+
+  if (splitType === "exact" && splitDetails && splitDetails[memberId] != null) {
+    return splitDetails[memberId];
+  }
+  if (splitType === "percentage" && splitDetails && splitDetails[memberId] != null) {
+    return (amount * splitDetails[memberId]) / 100;
+  }
+  // Default: equal split
+  return amount / splitAmong.length;
+}
+
+/**
  * Calculate net balances for each member from a list of expenses.
  * Returns a map: memberId -> net amount (positive = is owed, negative = owes)
  */
@@ -10,13 +27,12 @@ export function calculateNetBalances(expenses, members) {
     const { paidBy, amount, splitAmong } = expense;
     if (!splitAmong || splitAmong.length === 0) return;
 
-    const share = amount / splitAmong.length;
-
     // The payer is owed money
     balances[paidBy] = (balances[paidBy] || 0) + amount;
 
     // Each participant owes their share
     splitAmong.forEach((memberId) => {
+      const share = getMemberShare(expense, memberId);
       balances[memberId] = (balances[memberId] || 0) - share;
     });
   });
@@ -90,3 +106,5 @@ export function calculatePerCurrencyBalances(expenses, members) {
 
   return result;
 }
+
+export { getMemberShare };

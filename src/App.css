@@ -628,6 +628,96 @@ body {
   accent-color: var(--primary);
 }
 
+/* ==================== Split Type Toggle ==================== */
+.split-type-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.split-type-btn {
+  flex: 1;
+  background: var(--bg-input);
+  border: none;
+  color: var(--text-dim);
+  padding: 0.4rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.split-type-btn:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.split-type-btn.active {
+  background: var(--primary);
+  color: white;
+}
+
+.split-type-btn:hover:not(.active) {
+  background: var(--bg-card-hover);
+}
+
+.split-members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.split-member-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.split-member-row .checkbox-label {
+  min-width: 120px;
+}
+
+.split-detail-input {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.split-detail-input input {
+  width: 80px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 0.3rem 0.5rem;
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.split-detail-input input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.split-detail-suffix {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  min-width: 28px;
+}
+
+.split-detail-calc {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.hint-error {
+  color: var(--danger);
+}
+
 /* ==================== Balance Summary ==================== */
 .balance-summary {
   display: flex;

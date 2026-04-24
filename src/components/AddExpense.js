@@ -12,6 +12,32 @@ const CATEGORIES = [
   "Flights",
 ];
 
+const SPLIT_TYPES = [
+  { value: "equal", label: "Equal" },
+  { value: "exact", label: "Exact" },
+  { value: "percentage", label: "%" },
+];
+
+function initSplitDetails(members, splitType, amount) {
+  const details = {};
+  if (members.length === 0) return details;
+  if (splitType === "percentage") {
+    const each = Math.floor(100 / members.length);
+    const remainder = 100 - each * members.length;
+    members.forEach((id, i) => {
+      details[id] = i === 0 ? each + remainder : each;
+    });
+  } else if (splitType === "exact") {
+    const parsed = parseFloat(amount) || 0;
+    const each = members.length > 0 ? +(parsed / members.length).toFixed(2) : 0;
+    const remainder = +(parsed - each * members.length).toFixed(2);
+    members.forEach((id, i) => {
+      details[id] = i === 0 ? +(each + remainder).toFixed(2) : each;
+    });
+  }
+  return details;
+}
+
 export default function AddExpense({ trip, onClose, expense }) {
   const { dispatch } = useApp();
   const isEditing = !!expense;
@@ -24,18 +50,101 @@ export default function AddExpense({ trip, onClose, expense }) {
   const [splitAmong, setSplitAmong] = useState(
     expense?.splitAmong || trip.members.map((m) => m.id)
   );
+  const [splitType, setSplitType] = useState(expense?.splitType || "equal");
+  const [splitDetails, setSplitDetails] = useState(
+    expense?.splitDetails ||
+      initSplitDetails(
+        expense?.splitAmong || trip.members.map((m) => m.id),
+        expense?.splitType || "equal",
+        expense ? String(expense.amount) : ""
+      )
+  );
 
   const toggleMember = (memberId) => {
-    setSplitAmong((prev) =>
-      prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
-    );
+    setSplitAmong((prev) => {
+      const next = prev.includes(memberId)
+        ? prev.filter((id) => id !== memberId)
+        : [...prev, memberId];
+
+      if (splitType !== "equal") {
+        setSplitDetails(initSplitDetails(next, splitType, amount));
+      }
+      return next;
+    });
+  };
+
+  const handleSplitTypeChange = (type) => {
+    setSplitType(type);
+    if (type !== "equal") {
+      setSplitDetails(initSplitDetails(splitAmong, type, amount));
+    }
+  };
+
+  const handleDetailChange = (memberId, value) => {
+    setSplitDetails((prev) => ({
+      ...prev,
+      [memberId]: value === "" ? "" : parseFloat(value) || 0,
+    }));
+  };
+
+  const parsedAmount = parseFloat(amount) || 0;
+
+  // Validation for unequal splits
+  const detailsTotal = splitAmong.reduce(
+    (sum, id) => sum + (parseFloat(splitDetails[id]) || 0),
+    0
+  );
+  const isExactValid = splitType !== "exact" || Math.abs(detailsTotal - parsedAmount) < 0.02;
+  const isPercentValid = splitType !== "percentage" || Math.abs(detailsTotal - 100) < 0.1;
+  const isSplitValid = isExactValid && isPercentValid;
+
+  const getPerPersonDisplay = () => {
+    if (splitAmong.length === 0 || !amount) return null;
+    if (splitType === "equal") {
+      return `${splitAmong.length} ${splitAmong.length === 1 ? "person" : "people"} \u00b7 ${(parsedAmount / splitAmong.length).toFixed(2)} each`;
+    }
+    if (splitType === "exact") {
+      const diff = parsedAmount - detailsTotal;
+      if (Math.abs(diff) < 0.02) return "Amounts add up correctly";
+      return `${Math.abs(diff).toFixed(2)} ${diff > 0 ? "remaining" : "over"}`;
+    }
+    if (splitType === "percentage") {
+      const diff = 100 - detailsTotal;
+      if (Math.abs(diff) < 0.1) return "Percentages add up to 100%";
+      return `${Math.abs(diff).toFixed(1)}% ${diff > 0 ? "remaining" : "over"}`;
+    }
+    return null;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const parsedAmount = parseFloat(amount);
-    if (!description.trim() || isNaN(parsedAmount) || parsedAmount <= 0 || splitAmong.length === 0)
+    if (
+      !description.trim() ||
+      isNaN(parsedAmount) ||
+      parsedAmount <= 0 ||
+      splitAmong.length === 0 ||
+      !isSplitValid
+    )
       return;
+
+    const expenseData = {
+      description: description.trim(),
+      amount: parsedAmount,
+      currency,
+      category,
+      paidBy,
+      splitAmong,
+      splitType,
+    };
+
+    if (splitType !== "equal") {
+      // Only store details for members in the split
+      const filtered = {};
+      splitAmong.forEach((id) => {
+        filtered[id] = parseFloat(splitDetails[id]) || 0;
+      });
+      expenseData.splitDetails = filtered;
+    }
 
     if (isEditing) {
       dispatch({
@@ -43,37 +152,22 @@ export default function AddExpense({ trip, onClose, expense }) {
         payload: {
           tripId: trip.id,
           expenseId: expense.id,
-          updates: {
-            description: description.trim(),
-            amount: parsedAmount,
-            currency,
-            category,
-            paidBy,
-            splitAmong,
-          },
+          updates: expenseData,
         },
       });
     } else {
       dispatch({
         type: "ADD_EXPENSE",
-        payload: {
-          tripId: trip.id,
-          expense: {
-            description: description.trim(),
-            amount: parsedAmount,
-            currency,
-            category,
-            paidBy,
-            splitAmong,
-          },
-        },
+        payload: { tripId: trip.id, expense: expenseData },
       });
     }
     onClose();
   };
 
-  const perPerson =
-    splitAmong.length > 0 && amount ? (parseFloat(amount) / splitAmong.length).toFixed(2) : "0.00";
+  const hintText = getPerPersonDisplay();
+  const hintIsError =
+    (splitType === "exact" && !isExactValid) ||
+    (splitType === "percentage" && !isPercentValid);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -147,23 +241,59 @@ export default function AddExpense({ trip, onClose, expense }) {
 
           <div className="form-group">
             <label>Split among</label>
-            <div className="split-checkboxes">
-              {trip.members.map((m) => (
-                <label key={m.id} className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={splitAmong.includes(m.id)}
-                    onChange={() => toggleMember(m.id)}
-                  />
-                  {m.name}
-                </label>
+            <div className="split-type-toggle">
+              {SPLIT_TYPES.map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  className={`split-type-btn ${splitType === t.value ? "active" : ""}`}
+                  onClick={() => handleSplitTypeChange(t.value)}
+                >
+                  {t.label}
+                </button>
               ))}
             </div>
-            {splitAmong.length > 0 && amount && (
-              <p className="hint">
-                {splitAmong.length} {splitAmong.length === 1 ? "person" : "people"} &middot;{" "}
-                {perPerson} each
-              </p>
+
+            <div className="split-members-list">
+              {trip.members.map((m) => {
+                const isChecked = splitAmong.includes(m.id);
+                return (
+                  <div key={m.id} className="split-member-row">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleMember(m.id)}
+                      />
+                      {m.name}
+                    </label>
+                    {splitType !== "equal" && isChecked && (
+                      <div className="split-detail-input">
+                        <input
+                          type="number"
+                          value={splitDetails[m.id] ?? ""}
+                          onChange={(e) => handleDetailChange(m.id, e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          step={splitType === "percentage" ? "1" : "0.01"}
+                        />
+                        <span className="split-detail-suffix">
+                          {splitType === "percentage" ? "%" : currency}
+                        </span>
+                      </div>
+                    )}
+                    {splitType === "percentage" && isChecked && amount && (
+                      <span className="split-detail-calc">
+                        = {((parsedAmount * (parseFloat(splitDetails[m.id]) || 0)) / 100).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {hintText && (
+              <p className={`hint ${hintIsError ? "hint-error" : ""}`}>{hintText}</p>
             )}
           </div>
 
@@ -177,8 +307,9 @@ export default function AddExpense({ trip, onClose, expense }) {
               disabled={
                 !description.trim() ||
                 !amount ||
-                parseFloat(amount) <= 0 ||
-                splitAmong.length === 0
+                parsedAmount <= 0 ||
+                splitAmong.length === 0 ||
+                !isSplitValid
               }
             >
               {isEditing ? "Save Changes" : "Add Expense"}

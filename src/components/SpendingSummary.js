@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { formatMoney } from "../utils/currencies";
+import { getMemberShare } from "../utils/balances";
 
 const CATEGORY_COLORS = {
   General: "#6c5ce7",
@@ -116,10 +117,10 @@ function MemberSpending({ member, expenses, defaultCurrency, rates }) {
   // Get expenses this member is part of (split among)
   const memberExpenses = expenses.filter((e) => e.splitAmong.includes(member.id));
 
-  // Calculate each member's share and convert to SGD
+  // Calculate each member's true share and convert to SGD
   const convertedExpenses = memberExpenses.map((e) => ({
     ...e,
-    convertedAmount: convertToBase(e.amount / e.splitAmong.length, e.currency, rates),
+    convertedAmount: convertToBase(getMemberShare(e, member.id), e.currency, rates),
   }));
 
   const totalSpend = convertedExpenses.reduce((sum, e) => sum + e.convertedAmount, 0);
