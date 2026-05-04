@@ -1,6 +1,5 @@
 import React from "react";
 import { useApp } from "../context/AppContext";
-import { getCurrencySymbol } from "../utils/currencies";
 
 export default function TripList() {
   const { state, dispatch } = useApp();
@@ -27,7 +26,6 @@ export default function TripList() {
       ) : (
         <div className="trip-cards">
           {trips.map((trip) => {
-            const totalExpenses = trip.expenses.reduce((sum, e) => sum + e.amount, 0);
             return (
               <div
                 key={trip.id}
@@ -47,10 +45,6 @@ export default function TripList() {
                 <div className="trip-card-meta">
                   <span>{trip.members.length} members</span>
                   <span>{trip.expenses.length} expenses</span>
-                  <span>
-                    {getCurrencySymbol(trip.defaultCurrency)}
-                    {totalExpenses.toFixed(2)} total
-                  </span>
                 </div>
                 <div className="trip-card-date">
                   {new Date(trip.createdAt).toLocaleDateString()}

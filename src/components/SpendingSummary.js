@@ -8,8 +8,6 @@ const CATEGORY_COLORS = {
   Transport: "#00b894",
   Shopping: "#fdcb6e",
   Attractions: "#0984e3",
-  Accommodation: "#e84393",
-  Flights: "#00cec9",
 };
 
 const RATE_APIS = [

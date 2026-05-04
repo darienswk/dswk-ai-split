@@ -8,8 +8,6 @@ const CATEGORIES = [
   "Transport",
   "Shopping",
   "Attractions",
-  "Accommodation",
-  "Flights",
 ];
 
 const SPLIT_TYPES = [
