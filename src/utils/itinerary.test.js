@@ -3,6 +3,7 @@ import {
   createItinerary,
   deleteItem,
   getDateRange,
+  getMapsLink,
   MAX_ITINERARY_DAYS,
   moveItemToDay,
   reorderWithinDay,
@@ -132,5 +133,41 @@ describe("saveItem / deleteItem", () => {
 
   test("deletes a stop", () => {
     expect(ids(deleteItem(sample().days, "b")[0])).toEqual(["a", "c"]);
+  });
+});
+
+describe("getMapsLink", () => {
+  test("turns a place name into an encoded Google Maps search link", () => {
+    expect(getMapsLink("Tower of London, London EC3N 4AB")).toEqual({
+      href: "https://www.google.com/maps/search/?api=1&query=Tower%20of%20London%2C%20London%20EC3N%204AB",
+      label: "Tower of London, London EC3N 4AB",
+      isUrl: false,
+    });
+  });
+
+  test("encodes characters that could break out of the query", () => {
+    expect(getMapsLink("Fish & Chips #1").href).toBe(
+      "https://www.google.com/maps/search/?api=1&query=Fish%20%26%20Chips%20%231"
+    );
+  });
+
+  test("uses a pasted web link as-is", () => {
+    expect(getMapsLink("https://maps.app.goo.gl/abc123")).toEqual({
+      href: "https://maps.app.goo.gl/abc123",
+      label: "Open in Maps",
+      isUrl: true,
+    });
+  });
+
+  test("never links non-web URLs; they are treated as plain text", () => {
+    const link = getMapsLink("javascript:alert(1)");
+    expect(link.href.startsWith("https://www.google.com/maps/search/")).toBe(true);
+    expect(link.isUrl).toBe(false);
+  });
+
+  test("returns null for an empty location", () => {
+    expect(getMapsLink("")).toBeNull();
+    expect(getMapsLink("   ")).toBeNull();
+    expect(getMapsLink(undefined)).toBeNull();
   });
 });

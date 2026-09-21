@@ -1,7 +1,7 @@
 import React, { forwardRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { getItemType } from "../utils/itinerary";
+import { getItemType, getMapsLink } from "../utils/itinerary";
 
 // Presentational card, shared by the sortable list item and the drag overlay.
 export const ItineraryItemCard = forwardRef(function ItineraryItemCard(
@@ -9,6 +9,7 @@ export const ItineraryItemCard = forwardRef(function ItineraryItemCard(
   ref
 ) {
   const type = getItemType(item.type);
+  const mapsLink = getMapsLink(item.location);
   return (
     <li ref={ref} style={{ ...style, "--type-color": type.color }} className={`itin-item ${className}`}>
       <button type="button" className="itin-handle" aria-label={`Drag ${item.title}`} {...handleProps}>
@@ -19,7 +20,18 @@ export const ItineraryItemCard = forwardRef(function ItineraryItemCard(
         <div className="itin-title">
           <span aria-hidden="true">{type.icon}</span> {item.title}
         </div>
-        {item.location && <div className="itin-meta">&#128205; {item.location}</div>}
+        {mapsLink && (
+          <a
+            className="itin-chip"
+            href={mapsLink.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={mapsLink.isUrl ? mapsLink.href : `Open "${mapsLink.label}" in Google Maps`}
+          >
+            <span aria-hidden="true">&#128205;</span>
+            <span className="itin-chip-label">{mapsLink.label}</span>
+          </a>
+        )}
         {item.notes && <div className="itin-notes">{item.notes}</div>}
       </div>
       {onEdit && (

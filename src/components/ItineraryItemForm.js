@@ -90,7 +90,7 @@ export default function ItineraryItemForm({ days, dayId, item, onSave, onClose }
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="Address or place name"
+              placeholder="Place or address (links to Google Maps)"
             />
           </div>
 

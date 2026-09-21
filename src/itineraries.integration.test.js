@@ -113,7 +113,7 @@ test("adding a stop persists it under its day; trips and itineraries are written
   const modal = document.querySelector(".modal");
   fireEvent.change(within(modal).getByPlaceholderText(/Edinburgh Castle/), { target: { value: "Tower of London" } });
   fireEvent.change(modal.querySelector('input[type="time"]'), { target: { value: "10:30" } });
-  fireEvent.change(within(modal).getByPlaceholderText(/Address or place/), { target: { value: "Tower Hill" } });
+  fireEvent.change(within(modal).getByPlaceholderText(/links to Google Maps/), { target: { value: "Tower Hill" } });
   fireEvent.click(within(modal).getByRole("button", { name: "Add Stop" }));
 
   await waitFor(() => expect(lastItineraries()[0].days[1].items).toHaveLength(1));
@@ -194,4 +194,31 @@ test("changing dates keeps id/name and moves stops from removed days; delete rem
   fireEvent.click(screen.getByRole("button", { name: "Delete Itinerary" }));
   expect(await screen.findByText("No itineraries yet")).toBeInTheDocument();
   await waitFor(() => expect(lastItineraries()).toEqual([]));
+});
+
+test("a stop's location renders as a chip linking to Google Maps in a new tab", async () => {
+  render(<App />);
+  await openItineraries();
+  await createItinerary({ name: "UK Trip", start: "2026-11-23", end: "2026-11-24" });
+  await screen.findByRole("heading", { name: "UK Trip" });
+
+  const addStop = (dayId, title, location) => {
+    fireEvent.click(within(document.getElementById(`itin-day-${dayId}`)).getByRole("button", { name: "+ Add" }));
+    const modal = document.querySelector(".modal");
+    fireEvent.change(within(modal).getByPlaceholderText(/Edinburgh Castle/), { target: { value: title } });
+    fireEvent.change(within(modal).getByPlaceholderText(/links to Google Maps/), { target: { value: location } });
+    fireEvent.click(within(modal).getByRole("button", { name: "Add Stop" }));
+  };
+  addStop("2026-11-23", "Tower", "Tower of London");
+  addStop("2026-11-23", "Pub", "");
+  addStop("2026-11-24", "Castle", "https://maps.app.goo.gl/abc123");
+
+  const chip = await screen.findByRole("link", { name: /Tower of London/ });
+  expect(chip).toHaveAttribute("href", "https://www.google.com/maps/search/?api=1&query=Tower%20of%20London");
+  expect(chip).toHaveAttribute("target", "_blank");
+  expect(chip).toHaveAttribute("rel", expect.stringContaining("noopener"));
+
+  expect(screen.getByRole("link", { name: /Open in Maps/ })).toHaveAttribute("href", "https://maps.app.goo.gl/abc123");
+  // stops without a location get no chip
+  expect(screen.getAllByRole("link")).toHaveLength(2);
 });

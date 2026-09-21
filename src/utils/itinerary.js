@@ -78,6 +78,30 @@ export function resizeItinerary(itinerary, startDate, endDate) {
   return { ...itinerary, startDate, endDate, days };
 }
 
+// Link for a stop's location chip. Plain text becomes a Google Maps search; if the location is
+// already a web link (e.g. a pasted Google Maps share link) it is used as-is.
+export function getMapsLink(location) {
+  const text = (location || "").trim();
+  if (!text) return null;
+
+  if (/^https?:\/\//i.test(text)) {
+    try {
+      const url = new URL(text);
+      if (url.protocol === "http:" || url.protocol === "https:") {
+        return { href: url.href, label: "Open in Maps", isUrl: true };
+      }
+    } catch {
+      // not a valid URL - fall through and treat it as a place name
+    }
+  }
+
+  return {
+    href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(text)}`,
+    label: text,
+    isUrl: false,
+  };
+}
+
 export function countStops(itinerary) {
   return itinerary.days.reduce((n, d) => n + d.items.length, 0);
 }

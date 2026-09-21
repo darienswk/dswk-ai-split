@@ -1485,7 +1485,35 @@ body {
   font-weight: 600;
 }
 
-.itin-meta,
+.itin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.15rem 0.6rem 0.15rem 0.45rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.8rem;
+  text-decoration: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.itin-chip:hover,
+.itin-chip:focus-visible {
+  border-color: var(--primary);
+  background: rgba(108, 92, 231, 0.12);
+  outline: none;
+}
+
+.itin-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .itin-notes {
   color: var(--text-dim);
   font-size: 0.825rem;
