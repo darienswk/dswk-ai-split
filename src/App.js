@@ -4,6 +4,11 @@ import { AppProvider, useApp } from "./context/AppContext";
 import TripList from "./components/TripList";
 import CreateTrip from "./components/CreateTrip";
 import TripDetail from "./components/TripDetail";
+import ItineraryList from "./components/ItineraryList";
+import CreateItinerary from "./components/CreateItinerary";
+import ItineraryDetail from "./components/ItineraryDetail";
+
+const ITINERARY_VIEWS = ["itineraryList", "createItinerary", "itineraryDetail"];
 
 function Router() {
   const { state } = useApp();
@@ -13,9 +18,39 @@ function Router() {
       return <CreateTrip />;
     case "tripDetail":
       return <TripDetail />;
+    case "itineraryList":
+      return <ItineraryList />;
+    case "createItinerary":
+      return <CreateItinerary />;
+    case "itineraryDetail":
+      return <ItineraryDetail />;
     default:
       return <TripList />;
   }
+}
+
+function SectionNav() {
+  const { state, dispatch } = useApp();
+  const inItineraries = ITINERARY_VIEWS.includes(state.currentView);
+
+  return (
+    <nav className="app-nav" aria-label="Sections">
+      <div className="app-nav-inner">
+        <button
+          className={`app-nav-link ${!inItineraries ? "active" : ""}`}
+          onClick={() => dispatch({ type: "NAVIGATE", payload: { view: "tripList" } })}
+        >
+          My Trips
+        </button>
+        <button
+          className={`app-nav-link ${inItineraries ? "active" : ""}`}
+          onClick={() => dispatch({ type: "NAVIGATE", payload: { view: "itineraryList" } })}
+        >
+          My Itineraries
+        </button>
+      </div>
+    </nav>
+  );
 }
 
 function LoginScreen({ signIn }) {
@@ -54,6 +89,7 @@ function AuthenticatedApp() {
             </button>
           </div>
         </header>
+        <SectionNav />
         <main className="app-main">
           <Router />
         </main>

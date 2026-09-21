@@ -3,21 +3,23 @@ import { v4 as uuidv4 } from "uuid";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "./AuthContext";
+import { createItinerary } from "../utils/itinerary";
 
 const AppContext = createContext();
 
 const STORAGE_KEY = "splitwise_app_data";
 
-async function loadTrips(uid) {
+async function loadUserData(uid) {
   try {
     const snap = await getDoc(doc(db, "users", uid));
     if (snap.exists()) {
-      return snap.data().trips || [];
+      const data = snap.data();
+      return { trips: data.trips || [], itineraries: data.itineraries || [] };
     }
   } catch (e) {
-    console.error("Failed to load trips from Firestore:", e);
+    console.error("Failed to load data from Firestore:", e);
   }
-  return [];
+  return { trips: [], itineraries: [] };
 }
 
 function saveTrips(uid, trips) {
@@ -26,10 +28,23 @@ function saveTrips(uid, trips) {
   );
 }
 
+// Itineraries live in their own field on the same user document, and are written separately
+// from trips so editing one doesn't rewrite the other.
+function saveItineraries(uid, itineraries) {
+  setDoc(doc(db, "users", uid), { itineraries }, { merge: true }).catch((e) =>
+    console.error("Failed to save itineraries to Firestore:", e)
+  );
+}
+
 function reducer(state, action) {
   switch (action.type) {
-    case "LOAD_TRIPS": {
-      return { ...state, trips: action.payload.trips, loading: false };
+    case "LOAD_DATA": {
+      return {
+        ...state,
+        trips: action.payload.trips,
+        itineraries: action.payload.itineraries,
+        loading: false,
+      };
     }
 
     case "CREATE_TRIP": {
@@ -117,6 +132,40 @@ function reducer(state, action) {
       };
     }
 
+    case "CREATE_ITINERARY": {
+      const { name, description, startDate, endDate } = action.payload;
+      const itinerary = {
+        id: uuidv4(),
+        name,
+        description,
+        ...createItinerary(startDate, endDate),
+        createdAt: new Date().toISOString(),
+      };
+      return {
+        ...state,
+        itineraries: [...state.itineraries, itinerary],
+        currentItineraryId: itinerary.id,
+        currentView: "itineraryDetail",
+      };
+    }
+
+    case "SET_ITINERARY": {
+      const { itinerary } = action.payload;
+      return {
+        ...state,
+        itineraries: state.itineraries.map((i) => (i.id === itinerary.id ? itinerary : i)),
+      };
+    }
+
+    case "DELETE_ITINERARY": {
+      return {
+        ...state,
+        itineraries: state.itineraries.filter((i) => i.id !== action.payload.itineraryId),
+        currentView: "itineraryList",
+        currentItineraryId: null,
+      };
+    }
+
     case "SETTLE_TRIP": {
       const { tripId: settleTripId, settlements } = action.payload;
       return {
@@ -155,6 +204,7 @@ function reducer(state, action) {
         ...state,
         currentView: action.payload.view,
         currentTripId: action.payload.tripId || state.currentTripId,
+        currentItineraryId: action.payload.itineraryId || state.currentItineraryId,
       };
     }
 
@@ -167,20 +217,22 @@ export function AppProvider({ children }) {
   const { user } = useAuth();
   const [state, dispatch] = useReducer(reducer, {
     trips: [],
+    itineraries: [],
     currentView: "tripList",
     currentTripId: null,
+    currentItineraryId: null,
     loading: true,
   });
 
-  // Load trips from Firestore (with localStorage migration for existing users)
+  // Load trips and itineraries from Firestore (with localStorage migration for existing users)
   useEffect(() => {
     if (!user) return;
 
     async function loadData() {
-      const firestoreTrips = await loadTrips(user.uid);
+      const { trips: firestoreTrips, itineraries } = await loadUserData(user.uid);
 
       if (firestoreTrips.length > 0) {
-        dispatch({ type: "LOAD_TRIPS", payload: { trips: firestoreTrips } });
+        dispatch({ type: "LOAD_DATA", payload: { trips: firestoreTrips, itineraries } });
         return;
       }
 
@@ -191,7 +243,7 @@ export function AppProvider({ children }) {
           const parsed = JSON.parse(local);
           if (parsed.trips && parsed.trips.length > 0) {
             await saveTrips(user.uid, parsed.trips);
-            dispatch({ type: "LOAD_TRIPS", payload: { trips: parsed.trips } });
+            dispatch({ type: "LOAD_DATA", payload: { trips: parsed.trips, itineraries } });
             localStorage.removeItem(STORAGE_KEY);
             return;
           }
@@ -200,7 +252,7 @@ export function AppProvider({ children }) {
         console.error("localStorage migration failed:", e);
       }
 
-      dispatch({ type: "LOAD_TRIPS", payload: { trips: [] } });
+      dispatch({ type: "LOAD_DATA", payload: { trips: [], itineraries } });
     }
 
     loadData();
@@ -211,6 +263,12 @@ export function AppProvider({ children }) {
     if (state.loading || !user) return;
     saveTrips(user.uid, state.trips);
   }, [state.trips, user, state.loading]);
+
+  // Save itineraries to Firestore whenever they change
+  useEffect(() => {
+    if (state.loading || !user) return;
+    saveItineraries(user.uid, state.itineraries);
+  }, [state.itineraries, user, state.loading]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>
