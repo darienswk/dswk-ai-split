@@ -1,8 +1,10 @@
 import React, { useState } from "react";
+import { deleteObject, ref } from "firebase/storage";
+import { storage } from "../firebase";
 import { useApp } from "../context/AppContext";
 import ItineraryDates from "./ItineraryDates";
 import ItineraryTimeline from "./ItineraryTimeline";
-import { countOutside, formatDate, resizeItinerary } from "../utils/itinerary";
+import { countOutside, formatDate, getAllAttachments, resizeItinerary } from "../utils/itinerary";
 
 export default function ItineraryDetail() {
   const { state, dispatch } = useApp();
@@ -39,9 +41,11 @@ export default function ItineraryDetail() {
   };
 
   const handleDelete = () => {
-    if (window.confirm(`Delete "${itinerary.name}"? This cannot be undone.`)) {
-      dispatch({ type: "DELETE_ITINERARY", payload: { itineraryId: itinerary.id } });
-    }
+    if (!window.confirm(`Delete "${itinerary.name}"? This cannot be undone.`)) return;
+    getAllAttachments(itinerary).forEach((a) =>
+      deleteObject(ref(storage, a.path)).catch((err) => console.error("Failed to delete attachment:", err))
+    );
+    dispatch({ type: "DELETE_ITINERARY", payload: { itineraryId: itinerary.id } });
   };
 
   const range = `${formatDate(itinerary.startDate, { day: "numeric", month: "short" })} – ${formatDate(

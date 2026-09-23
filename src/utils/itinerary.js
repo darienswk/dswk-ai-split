@@ -106,6 +106,29 @@ export function countStops(itinerary) {
   return itinerary.days.reduce((n, d) => n + d.items.length, 0);
 }
 
+// ==================== Attachments ====================
+// Files (booking confirmations, boarding passes, ...) live in Firebase Storage, not Firestore.
+// Each stop keeps only metadata: { id, name, path, url, contentType, size, uploadedAt }.
+export const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB - keep in sync with storage.rules
+export const ATTACHMENT_ACCEPT = "image/*,application/pdf";
+
+// Storage path for one attachment. Scoped under the owning user so Storage security rules can
+// restrict access to `users/{uid}/...` the same way Firestore access is scoped per user.
+export function attachmentStoragePath(uid, itineraryId, stopId, attachmentId, filename) {
+  const safeName = (filename || "file").replace(/[^\w.-]+/g, "_").slice(0, 120);
+  return `users/${uid}/itineraries/${itineraryId}/${stopId}/${attachmentId}-${safeName}`;
+}
+
+export function isImageAttachment(attachment) {
+  return !!attachment.contentType && attachment.contentType.startsWith("image/");
+}
+
+// Every attachment across every stop in an itinerary, used to clean up Storage when the whole
+// itinerary is deleted.
+export function getAllAttachments(itinerary) {
+  return itinerary.days.flatMap((d) => d.items.flatMap((i) => i.attachments || []));
+}
+
 // A drag target id is either a day id (empty area of a day) or an item id.
 export function findDayId(days, id) {
   if (days.some((d) => d.id === id)) return id;

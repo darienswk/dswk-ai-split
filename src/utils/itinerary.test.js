@@ -1,9 +1,12 @@
 import {
+  attachmentStoragePath,
   countOutside,
   createItinerary,
   deleteItem,
+  getAllAttachments,
   getDateRange,
   getMapsLink,
+  isImageAttachment,
   MAX_ITINERARY_DAYS,
   moveItemToDay,
   reorderWithinDay,
@@ -169,5 +172,50 @@ describe("getMapsLink", () => {
     expect(getMapsLink("")).toBeNull();
     expect(getMapsLink("   ")).toBeNull();
     expect(getMapsLink(undefined)).toBeNull();
+  });
+});
+
+describe("attachmentStoragePath", () => {
+  test("scopes the path under the user, itinerary and stop", () => {
+    const path = attachmentStoragePath("u1", "it-1", "stop-1", "att-1", "boarding pass.pdf");
+    expect(path).toBe("users/u1/itineraries/it-1/stop-1/att-1-boarding_pass.pdf");
+  });
+
+  test("sanitizes characters that aren't safe in a storage path", () => {
+    const path = attachmentStoragePath("u1", "it-1", "stop-1", "att-1", "café/résumé? (final).pdf");
+    expect(path).toBe("users/u1/itineraries/it-1/stop-1/att-1-caf_r_sum_final_.pdf");
+  });
+
+  test("falls back to a default name and caps the length", () => {
+    expect(attachmentStoragePath("u1", "it-1", "stop-1", "att-1", "")).toBe(
+      "users/u1/itineraries/it-1/stop-1/att-1-file"
+    );
+    const long = "a".repeat(200) + ".pdf";
+    const path = attachmentStoragePath("u1", "it-1", "stop-1", "att-1", long);
+    expect(path.length).toBeLessThan(long.length + 40);
+  });
+});
+
+describe("isImageAttachment", () => {
+  test("checks the stored content type", () => {
+    expect(isImageAttachment({ contentType: "image/png" })).toBe(true);
+    expect(isImageAttachment({ contentType: "application/pdf" })).toBe(false);
+    expect(isImageAttachment({})).toBe(false);
+  });
+});
+
+describe("getAllAttachments", () => {
+  test("flattens attachments across every day and stop", () => {
+    const it = createItinerary("2026-11-23", "2026-11-24");
+    it.days[0].items = [
+      { ...stop("a"), attachments: [{ id: "f1" }, { id: "f2" }] },
+      { ...stop("b"), attachments: [] },
+    ];
+    it.days[1].items = [{ ...stop("c"), attachments: [{ id: "f3" }] }, stop("d")];
+    expect(getAllAttachments(it).map((a) => a.id)).toEqual(["f1", "f2", "f3"]);
+  });
+
+  test("returns an empty array when there are no attachments", () => {
+    expect(getAllAttachments(createItinerary("2026-11-23", "2026-11-24"))).toEqual([]);
   });
 });

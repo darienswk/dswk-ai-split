@@ -2,16 +2,36 @@ import React from "react";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import App from "./App";
 
-// In-memory stand-in for Firestore that records every write. Names start with "mock" so
-// jest allows the factories below to reference them.
+// In-memory stand-ins for Firestore and Storage that record every write. Names start with
+// "mock" so jest allows the factories below to reference them.
 const mockStore = new Map();
 let mockWrites = [];
+let mockDeletedPaths = [];
 
 // uuid v14 is ESM-only, which this project's Jest setup can't parse.
 let mockIdCounter = 0;
 jest.mock("uuid", () => ({ v4: () => `id-${++mockIdCounter}` }));
 
-jest.mock("./firebase", () => ({ auth: {}, db: {} }));
+jest.mock("./firebase", () => ({ auth: {}, db: {}, storage: {} }));
+
+// Fake Storage: uploads "complete" on the next microtask with the file's own size as progress,
+// so tests can `await waitFor(...)` for the resulting attachment to appear.
+jest.mock("firebase/storage", () => ({
+  ref: (storage, path) => ({ path }),
+  uploadBytesResumable: (storageRef, file) => ({
+    snapshot: { ref: storageRef },
+    on: (event, onProgress, onError, onComplete) => {
+      Promise.resolve().then(() => {
+        onProgress?.({ bytesTransferred: file.size, totalBytes: file.size });
+        onComplete?.();
+      });
+    },
+  }),
+  getDownloadURL: async (storageRef) => `https://storage.example.com/${storageRef.path}`,
+  deleteObject: async (storageRef) => {
+    mockDeletedPaths.push(storageRef.path);
+  },
+}));
 
 jest.mock("firebase/auth", () => ({
   onAuthStateChanged: (auth, cb) => {
@@ -55,10 +75,26 @@ const createItinerary = async ({ name, description = "", start, end }) => {
   fireEvent.click(screen.getByRole("button", { name: "Create Itinerary" }));
 };
 
+const openAddStopForm = async (dayId) => {
+  fireEvent.click(within(document.getElementById(`itin-day-${dayId}`)).getByRole("button", { name: "+ Add" }));
+  return document.querySelector(".modal");
+};
+
+const pickFile = async (modal, name = "boarding-pass.pdf", type = "application/pdf", size = 1024) => {
+  const file = new File(["x".repeat(size)], name, { type });
+  const input = within(modal).getByLabelText("+ Add file");
+  fireEvent.change(input, { target: { files: [file] } });
+  await within(modal).findByRole("link", { name: new RegExp(name) });
+  return file;
+};
+
 beforeEach(() => {
   mockStore.clear();
   mockWrites = [];
+  mockDeletedPaths = [];
+  mockIdCounter = 0;
   window.confirm = () => true;
+  window.alert = jest.fn();
 });
 
 test("has a top-level My Itineraries section next to My Trips", async () => {
@@ -124,6 +160,7 @@ test("adding a stop persists it under its day; trips and itineraries are written
     time: "10:30",
     location: "Tower Hill",
     notes: "",
+    attachments: [],
   });
   expect(lastItineraries()[0].days[0].items).toEqual([]);
 
@@ -221,4 +258,121 @@ test("a stop's location renders as a chip linking to Google Maps in a new tab", 
   expect(screen.getByRole("link", { name: /Open in Maps/ })).toHaveAttribute("href", "https://maps.app.goo.gl/abc123");
   // stops without a location get no chip
   expect(screen.getAllByRole("link")).toHaveLength(2);
+});
+
+describe("stop attachments", () => {
+  const setupStop = async () => {
+    render(<App />);
+    await openItineraries();
+    await createItinerary({ name: "UK Trip", start: "2026-11-23", end: "2026-11-24" });
+    await screen.findByRole("heading", { name: "UK Trip" });
+    return openAddStopForm("2026-11-23");
+  };
+
+  test("uploading a file shows a chip and saves its metadata under the stop", async () => {
+    const modal = await setupStop();
+    await pickFile(modal, "boarding-pass.pdf", "application/pdf", 2048);
+
+    fireEvent.change(within(modal).getByPlaceholderText(/Edinburgh Castle/), { target: { value: "Flight" } });
+    fireEvent.click(within(modal).getByRole("button", { name: "Add Stop" }));
+
+    await waitFor(() => expect(lastItineraries()[0].days[0].items).toHaveLength(1));
+    const [saved] = lastItineraries()[0].days[0].items;
+    expect(saved.attachments).toEqual([
+      {
+        id: expect.any(String),
+        name: "boarding-pass.pdf",
+        path: expect.stringMatching(/^users\/u1\/itineraries\/.+\/.+\/.+-boarding-pass\.pdf$/),
+        url: expect.stringMatching(/^https:\/\/storage\.example\.com\//),
+        contentType: "application/pdf",
+        size: 2048,
+        uploadedAt: expect.any(String),
+      },
+    ]);
+
+    // and it renders as a chip on the card
+    expect(await screen.findByRole("link", { name: /boarding-pass\.pdf/ })).toHaveAttribute("href", saved.attachments[0].url);
+    expect(mockDeletedPaths).toEqual([]);
+  });
+
+  test("removing an attachment before saving deletes it from Storage and drops it from the payload", async () => {
+    const modal = await setupStop();
+    await pickFile(modal);
+    fireEvent.change(within(modal).getByPlaceholderText(/Edinburgh Castle/), { target: { value: "Flight" } });
+
+    fireEvent.click(within(modal).getByRole("button", { name: "Remove boarding-pass.pdf" }));
+    expect(within(modal).queryByRole("link", { name: /boarding-pass\.pdf/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(mockDeletedPaths).toHaveLength(1));
+
+    fireEvent.click(within(modal).getByRole("button", { name: "Add Stop" }));
+    await waitFor(() => expect(lastItineraries()[0].days[0].items).toHaveLength(1));
+    expect(lastItineraries()[0].days[0].items[0].attachments).toEqual([]);
+  });
+
+  test("closing the form without saving deletes any files uploaded that session (orphan cleanup)", async () => {
+    const modal = await setupStop();
+    await pickFile(modal);
+
+    fireEvent.click(within(modal).getByRole("button", { name: "×" }));
+    await waitFor(() => expect(mockDeletedPaths).toHaveLength(1));
+    expect(mockDeletedPaths[0]).toMatch(/boarding-pass\.pdf$/);
+    // the stop was never saved, so the day it would have belonged to is still empty
+    expect(lastItineraries()[0].days[0].items).toEqual([]);
+  });
+
+  test("editing a stop keeps its existing attachment on close without re-deleting it", async () => {
+    const modal = await setupStop();
+    await pickFile(modal);
+    fireEvent.change(within(modal).getByPlaceholderText(/Edinburgh Castle/), { target: { value: "Flight" } });
+    fireEvent.click(within(modal).getByRole("button", { name: "Add Stop" }));
+    await waitFor(() => expect(lastItineraries()[0].days[0].items).toHaveLength(1));
+
+    // reopen the same stop for editing and close it without changes
+    fireEvent.click(screen.getByRole("button", { name: "Edit Flight" }));
+    fireEvent.click(within(document.querySelector(".modal")).getByRole("button", { name: "×" }));
+    expect(mockDeletedPaths).toEqual([]); // the pre-existing attachment must NOT be cleaned up
+    expect(await screen.findByRole("link", { name: /boarding-pass\.pdf/ })).toBeInTheDocument();
+  });
+
+  test("deleting a stop deletes its attachments from Storage", async () => {
+    const modal = await setupStop();
+    await pickFile(modal);
+    fireEvent.change(within(modal).getByPlaceholderText(/Edinburgh Castle/), { target: { value: "Flight" } });
+    fireEvent.click(within(modal).getByRole("button", { name: "Add Stop" }));
+    await waitFor(() => expect(lastItineraries()[0].days[0].items).toHaveLength(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Flight" }));
+    await waitFor(() => expect(mockDeletedPaths).toHaveLength(1));
+    expect(mockDeletedPaths[0]).toMatch(/boarding-pass\.pdf$/);
+  });
+
+  test("deleting the whole itinerary deletes every stop's attachments", async () => {
+    const modal = await setupStop();
+    await pickFile(modal, "flight.pdf");
+    fireEvent.change(within(modal).getByPlaceholderText(/Edinburgh Castle/), { target: { value: "Flight" } });
+    fireEvent.click(within(modal).getByRole("button", { name: "Add Stop" }));
+    await waitFor(() => expect(lastItineraries()[0].days[0].items).toHaveLength(1));
+
+    const modal2 = await openAddStopForm("2026-11-24");
+    await pickFile(modal2, "hotel.pdf");
+    fireEvent.change(within(modal2).getByPlaceholderText(/Edinburgh Castle/), { target: { value: "Hotel" } });
+    fireEvent.click(within(modal2).getByRole("button", { name: "Add Stop" }));
+    await waitFor(() => expect(lastItineraries()[0].days[1].items).toHaveLength(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Itinerary" }));
+    await waitFor(() => expect(mockDeletedPaths).toHaveLength(2));
+    expect(mockDeletedPaths.sort()).toEqual(
+      [expect.stringMatching(/flight\.pdf$/), expect.stringMatching(/hotel\.pdf$/)].sort()
+    );
+  });
+
+  test("rejects a file over the 10MB limit without uploading it", async () => {
+    const modal = await setupStop();
+    const file = new File(["x"], "huge.pdf", { type: "application/pdf" });
+    Object.defineProperty(file, "size", { value: 11 * 1024 * 1024 });
+    fireEvent.change(within(modal).getByLabelText("+ Add file"), { target: { files: [file] } });
+
+    await waitFor(() => expect(window.alert).toHaveBeenCalledWith(expect.stringContaining("huge.pdf")));
+    expect(within(modal).queryByText("huge.pdf")).not.toBeInTheDocument();
+  });
 });

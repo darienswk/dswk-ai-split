@@ -11,10 +11,17 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { v4 as uuidv4 } from "uuid";
+import { deleteObject, ref } from "firebase/storage";
+import { storage } from "../firebase";
 import ItineraryDay from "./ItineraryDay";
 import ItineraryItemForm from "./ItineraryItemForm";
 import { ItineraryItemCard } from "./ItineraryItem";
 import { deleteItem, findItem, formatDate, moveItemToDay, reorderWithinDay, saveItem } from "../utils/itinerary";
+
+const deleteAttachments = (attachments) =>
+  (attachments || []).forEach((a) =>
+    deleteObject(ref(storage, a.path)).catch((err) => console.error("Failed to delete attachment:", err))
+  );
 
 export default function ItineraryTimeline({ itinerary, onChange }) {
   // While a drag is in progress the moves are kept locally in `draftDays` and only saved on drop,
@@ -58,13 +65,16 @@ export default function ItineraryTimeline({ itinerary, onChange }) {
   };
 
   const handleSave = (values, existing) => {
-    const nextDays = saveItem(itinerary.days, existing ? values : { ...values, id: uuidv4() }, existing);
+    const id = existing ? existing.id : form.stopId;
+    const nextDays = saveItem(itinerary.days, { ...values, id }, existing);
     commit(nextDays);
     setForm(null);
   };
 
   const handleDelete = (item) => {
-    if (window.confirm(`Delete "${item.title}"?`)) commit(deleteItem(itinerary.days, item.id));
+    if (!window.confirm(`Delete "${item.title}"?`)) return;
+    deleteAttachments(item.attachments);
+    commit(deleteItem(itinerary.days, item.id));
   };
 
   const handleCityChange = (dayId, city) => {
@@ -103,8 +113,8 @@ export default function ItineraryTimeline({ itinerary, onChange }) {
               day={day}
               index={i}
               onCityChange={handleCityChange}
-              onAdd={(dayId) => setForm({ dayId })}
-              onEdit={(item) => setForm({ dayId: findDayOfItem(item)?.id, item })}
+              onAdd={(dayId) => setForm({ dayId, stopId: uuidv4() })}
+              onEdit={(item) => setForm({ dayId: findDayOfItem(item)?.id, item, stopId: item.id })}
               onDelete={handleDelete}
             />
           ))}
@@ -119,6 +129,8 @@ export default function ItineraryTimeline({ itinerary, onChange }) {
           days={itinerary.days}
           dayId={form.dayId}
           item={form.item}
+          itineraryId={itinerary.id}
+          stopId={form.stopId}
           onSave={handleSave}
           onClose={() => setForm(null)}
         />

@@ -1,7 +1,7 @@
 import React, { forwardRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { getItemType, getMapsLink } from "../utils/itinerary";
+import { getItemType, getMapsLink, isImageAttachment } from "../utils/itinerary";
 
 // Presentational card, shared by the sortable list item and the drag overlay.
 export const ItineraryItemCard = forwardRef(function ItineraryItemCard(
@@ -31,6 +31,23 @@ export const ItineraryItemCard = forwardRef(function ItineraryItemCard(
             <span aria-hidden="true">&#128205;</span>
             <span className="itin-chip-label">{mapsLink.label}</span>
           </a>
+        )}
+        {item.attachments && item.attachments.length > 0 && (
+          <div className="itin-attachments-row">
+            {item.attachments.map((a) => (
+              <a
+                key={a.id}
+                className="itin-chip"
+                href={a.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={a.name}
+              >
+                <span aria-hidden="true">{isImageAttachment(a) ? "🖼️" : "📎"}</span>
+                <span className="itin-chip-label">{a.name}</span>
+              </a>
+            ))}
+          </div>
         )}
         {item.notes && <div className="itin-notes">{item.notes}</div>}
       </div>

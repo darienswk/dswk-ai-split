@@ -1514,6 +1514,99 @@ body {
   white-space: nowrap;
 }
 
+.itin-attachments-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.3rem;
+}
+
+.itin-attachments-row .itin-chip {
+  margin-top: 0;
+  max-width: 220px;
+}
+
+/* Attachment picker inside the Add/Edit Stop form */
+.itin-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.itin-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  padding: 0.2rem 0.35rem 0.2rem 0.6rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+
+.itin-attachment-chip a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 180px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.itin-attachment-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itin-attachment-chip button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.itin-attachment-chip button:hover {
+  background: rgba(231, 76, 60, 0.15);
+  color: var(--danger);
+}
+
+.itin-attachment-chip.is-uploading {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+  min-width: 140px;
+  padding: 0.35rem 0.6rem;
+}
+
+.itin-upload-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.itin-upload-bar div {
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.15s;
+}
+
+.itin-attach-btn {
+  display: inline-flex;
+  width: fit-content;
+  cursor: pointer;
+}
+
 .itin-notes {
   color: var(--text-dim);
   font-size: 0.825rem;
