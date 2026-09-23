@@ -10,6 +10,7 @@ export default function ItineraryDetail() {
   const { state, dispatch } = useApp();
   const itinerary = state.itineraries.find((i) => i.id === state.currentItineraryId);
   const [editingDates, setEditingDates] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const goToList = () => dispatch({ type: "NAVIGATE", payload: { view: "itineraryList" } });
 
@@ -48,6 +49,21 @@ export default function ItineraryDetail() {
     dispatch({ type: "DELETE_ITINERARY", payload: { itineraryId: itinerary.id } });
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      // Loaded on demand: jsPDF + pdf-lib are a meaningful chunk of weight that most visitors
+      // (using this app for expense splitting, not exporting itineraries) never need to download.
+      const { exportItineraryToPdf } = await import("../utils/exportPdf");
+      await exportItineraryToPdf(itinerary);
+    } catch (err) {
+      console.error("Failed to export itinerary to PDF:", err);
+      window.alert("Sorry, the PDF export failed. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const range = `${formatDate(itinerary.startDate, { day: "numeric", month: "short" })} – ${formatDate(
     itinerary.endDate,
     { day: "numeric", month: "short", year: "numeric" }
@@ -72,9 +88,14 @@ export default function ItineraryDetail() {
         <span className="itin-range">
           {range} &middot; {itinerary.days.length} days
         </span>
-        <button type="button" className="btn btn-sm btn-secondary" onClick={() => setEditingDates((v) => !v)}>
-          {editingDates ? "Close" : "Change dates"}
-        </button>
+        <div className="itin-toolbar-actions">
+          <button type="button" className="btn btn-sm btn-secondary" onClick={handleExport} disabled={exporting}>
+            {exporting ? "Exporting…" : "Export PDF"}
+          </button>
+          <button type="button" className="btn btn-sm btn-secondary" onClick={() => setEditingDates((v) => !v)}>
+            {editingDates ? "Close" : "Change dates"}
+          </button>
+        </div>
       </div>
 
       {editingDates && (

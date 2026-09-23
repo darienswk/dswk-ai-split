@@ -1249,8 +1249,14 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin-bottom: 0.75rem;
+}
+
+.itin-toolbar-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .itin-range {
