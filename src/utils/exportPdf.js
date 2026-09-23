@@ -76,13 +76,20 @@ function bytesToDataUrl(bytes, contentType) {
 
 // Adds a clickable "jump to another page in this document" annotation. pdf-lib has no
 // higher-level helper for this, so the Link annotation is built by hand per the PDF spec.
-function addInternalLink(context, sourcePage, rect, targetPage) {
+// `targetY` (optional) scrolls to that exact vertical position on the target page instead of
+// just fitting the whole page in view - used to land on the specific appendix row, not just
+// the top of the appendix section.
+function addInternalLink(context, sourcePage, rect, targetPage, targetY) {
+  const dest =
+    targetY == null
+      ? context.obj([targetPage.ref, PDFName.of("Fit")])
+      : context.obj([targetPage.ref, PDFName.of("XYZ"), null, targetY, null]);
   const dict = context.obj({
     Type: "Annot",
     Subtype: "Link",
     Rect: [rect.x1, rect.y1, rect.x2, rect.y2],
     Border: [0, 0, 0], // no visible box around the (already-styled) text
-    Dest: context.obj([targetPage.ref, PDFName.of("Fit")]),
+    Dest: dest,
   });
   const ref = context.register(dict);
   const existingAnnots = sourcePage.node.Annots();
@@ -231,7 +238,7 @@ export async function exportItineraryToPdf(itinerary) {
             indent: STOP_INDENT,
             gap: 2,
           });
-          appendixLinkSources.push(box);
+          appendixLinkSources.push({ ref, ...box });
         }
       }
       y += 6;
@@ -257,18 +264,19 @@ export async function exportItineraryToPdf(itinerary) {
 
   // Hand off to pdf-lib, which (unlike jsPDF) can import pages from other PDF files.
   const finalDoc = await PDFDocument.load(doc.output("arraybuffer"));
-  const appendixStartPage = await appendPdfAttachments(finalDoc, pdfAppendix);
+  const { firstPage: appendixStartPage, refTargets } = await appendPdfAttachments(finalDoc, pdfAppendix);
 
-  // Make every "(see Appendix Ax)" mention a clickable link to where the appendix starts. All of
-  // them share one target rather than each entry's own row, so this still works even if the
-  // appendix index itself later overflows onto a second page.
+  // Make every "(see Appendix Ax)" mention a clickable link to its own row in the appendix. Falls
+  // back to just the top of the appendix section if a target somehow wasn't recorded.
   const mainPages = finalDoc.getPages();
   appendixLinkSources.forEach((box) => {
+    const target = refTargets.get(box.ref);
     addInternalLink(
       finalDoc.context,
       mainPages[box.pageIndex],
       { x1: box.x, y1: PAGE_HEIGHT - box.yTop - box.height, x2: box.x + box.width, y2: PAGE_HEIGHT - box.yTop },
-      appendixStartPage
+      target?.page || appendixStartPage,
+      target ? target.y + 12 : null // a little headroom above the row so it isn't flush with the top edge
     );
   });
 
@@ -276,8 +284,9 @@ export async function exportItineraryToPdf(itinerary) {
 }
 
 // Adds an "Appendix" index page listing each reference, then merges every attached PDF's own
-// pages onto the end, in the same order they were referenced. Returns the first appendix page,
-// which is where inline "(see Appendix Ax)" links jump to.
+// pages onto the end, in the same order they were referenced. Returns the first appendix page
+// (a fallback link target) and each reference's own row position (page + y), for linking
+// straight to the exact row rather than just the top of the section.
 async function appendPdfAttachments(finalDoc, appendixItems) {
   const font = await finalDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await finalDoc.embedFont(StandardFonts.HelveticaBold);
@@ -291,10 +300,13 @@ async function appendPdfAttachments(finalDoc, appendixItems) {
     page = finalDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     y = PAGE_HEIGHT - MARGIN;
   };
+  // Returns where this line landed (page + its top y), so a caller can link straight to it.
   const line = (text, { size = 10, bold = false, color = ink, gap = 16 } = {}) => {
     if (y - size < MARGIN) newPage();
+    const position = { page, y };
     page.drawText(text, { x: MARGIN, y: y - size, size, font: bold ? fontBold : font, color });
     y -= gap;
+    return position;
   };
 
   line("Appendix — Attached Documents", { size: 15, bold: true, gap: 26 });
@@ -312,12 +324,14 @@ async function appendPdfAttachments(finalDoc, appendixItems) {
     }
   }
 
+  const refTargets = new Map();
   results.forEach(({ item, copied }) => {
     const status = copied ? "" : "  (unavailable)";
-    line(`${item.ref} — ${item.stopTitle} — ${item.name}${status}`, { size: 10, color: muted });
+    const position = line(`${item.ref} — ${item.stopTitle} — ${item.name}${status}`, { size: 10, color: muted });
+    refTargets.set(item.ref, position);
   });
 
   results.forEach(({ copied }) => copied && copied.forEach((p) => finalDoc.addPage(p)));
 
-  return firstPage;
+  return { firstPage, refTargets };
 }

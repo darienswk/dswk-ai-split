@@ -218,7 +218,7 @@ describe("PDF appendix", () => {
     expect(mockCalls.save).toBeNull();
   });
 
-  test("the inline reference is a clickable link that jumps to where the appendix starts", async () => {
+  test("the inline reference is a clickable link that jumps to its own row in the appendix", async () => {
     await exportItineraryToPdf(
       itineraryWithStop({
         attachments: [attachment({ name: "boarding-pass.pdf", url: "https://example.com/doc-a.pdf", contentType: "application/pdf" })],
@@ -238,8 +238,9 @@ describe("PDF appendix", () => {
     expect(annotDict.get(PDFName.of("Subtype")).toString()).toBe("/Link");
 
     const dest = annotDict.get(PDFName.of("Dest"));
-    const targetRef = dest.get(0);
-    expect(targetRef).toBe(appendixPage.ref);
+    expect(dest.get(0)).toBe(appendixPage.ref);
+    expect(dest.get(1).toString()).toBe("/XYZ"); // an exact scroll position, not just "/Fit" the page
+    expect(dest.get(3).asNumber()).toBeGreaterThan(0); // a real target Y, not near the page's own origin
 
     // and it's positioned over the actual "(see Appendix A1)" line, not somewhere arbitrary
     const rect = annotDict.get(PDFName.of("Rect")).asArray().map((n) => n.asNumber());
@@ -265,6 +266,17 @@ describe("PDF appendix", () => {
     // 1 placeholder "main" page + 1 appendix index page + 2 pages from doc-a + 1 page from doc-b
     const finalDoc = await PDFDocument.load(global.downloadedBytes);
     expect(finalDoc.getPageCount()).toBe(1 + 1 + 2 + 1);
+
+    // each reference links to its OWN row, not just "the appendix" generically - A1 (listed
+    // first, higher up the page) should target a larger Y than A2 (listed below it)
+    const mainPage = finalDoc.getPages()[0];
+    const annots = mainPage.node.Annots();
+    expect(annots.size()).toBe(2);
+    const targetYOf = (i) => {
+      const annotDict = finalDoc.context.lookup(annots.get(i));
+      return annotDict.get(PDFName.of("Dest")).get(3).asNumber();
+    };
+    expect(targetYOf(0)).toBeGreaterThan(targetYOf(1));
   });
 
   test("marks an unmergeable PDF as unavailable instead of failing the whole export", async () => {
