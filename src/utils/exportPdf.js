@@ -266,17 +266,21 @@ export async function exportItineraryToPdf(itinerary) {
   const finalDoc = await PDFDocument.load(doc.output("arraybuffer"));
   const { firstPage: appendixStartPage, refTargets } = await appendPdfAttachments(finalDoc, pdfAppendix);
 
-  // Make every "(see Appendix Ax)" mention a clickable link to its own row in the appendix. Falls
-  // back to just the top of the appendix section if a target somehow wasn't recorded.
+  // Make every "(see Appendix Ax)" mention a clickable link straight to where that attachment's
+  // own content starts (or, if it couldn't be merged, to its index row explaining why). Falls
+  // back to just the top of the appendix section if a target somehow wasn't recorded at all.
   const mainPages = finalDoc.getPages();
   appendixLinkSources.forEach((box) => {
     const target = refTargets.get(box.ref);
+    // a little headroom above an index row so it isn't flush with the top edge; no target, or a
+    // page-level target (y === null, meaning "fit the whole page"), both fall through to null
+    const targetY = target && target.y != null ? target.y + 12 : null;
     addInternalLink(
       finalDoc.context,
       mainPages[box.pageIndex],
       { x1: box.x, y1: PAGE_HEIGHT - box.yTop - box.height, x2: box.x + box.width, y2: PAGE_HEIGHT - box.yTop },
       target?.page || appendixStartPage,
-      target ? target.y + 12 : null // a little headroom above the row so it isn't flush with the top edge
+      targetY
     );
   });
 
@@ -285,8 +289,8 @@ export async function exportItineraryToPdf(itinerary) {
 
 // Adds an "Appendix" index page listing each reference, then merges every attached PDF's own
 // pages onto the end, in the same order they were referenced. Returns the first appendix page
-// (a fallback link target) and each reference's own row position (page + y), for linking
-// straight to the exact row rather than just the top of the section.
+// (a last-resort link target) and, per reference, where its own content actually starts (or,
+// failing that, its index row) - see the comment above `refTargets` below for why.
 async function appendPdfAttachments(finalDoc, appendixItems) {
   const font = await finalDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await finalDoc.embedFont(StandardFonts.HelveticaBold);
@@ -324,11 +328,18 @@ async function appendPdfAttachments(finalDoc, appendixItems) {
     }
   }
 
+  // Inline links jump straight to where each attachment's own content starts (its first copied
+  // page), not to its index row - the reader wants to see the document, not read about it. If a
+  // PDF couldn't be merged, there's no content to jump to, so fall back to its index row instead,
+  // where the "(unavailable)" note explains why - captured here as each row is drawn.
   const refTargets = new Map();
   results.forEach(({ item, copied }) => {
     const status = copied ? "" : "  (unavailable)";
-    const position = line(`${item.ref} — ${item.stopTitle} — ${item.name}${status}`, { size: 10, color: muted });
-    refTargets.set(item.ref, position);
+    const rowPosition = line(`${item.ref} — ${item.stopTitle} — ${item.name}${status}`, { size: 10, color: muted });
+    refTargets.set(
+      item.ref,
+      copied && copied.length > 0 ? { page: copied[0], y: null } : rowPosition // null y -> addInternalLink uses /Fit
+    );
   });
 
   results.forEach(({ copied }) => copied && copied.forEach((p) => finalDoc.addPage(p)));

@@ -218,19 +218,20 @@ describe("PDF appendix", () => {
     expect(mockCalls.save).toBeNull();
   });
 
-  test("the inline reference is a clickable link that jumps to its own row in the appendix", async () => {
+  test("the inline reference is a clickable link straight to the attachment's own content", async () => {
     await exportItineraryToPdf(
       itineraryWithStop({
+        // doc-a.pdf is a 2-page donor (see makeDonorPdf fixture below)
         attachments: [attachment({ name: "boarding-pass.pdf", url: "https://example.com/doc-a.pdf", contentType: "application/pdf" })],
       })
     );
 
     const finalDoc = await PDFDocument.load(global.downloadedBytes);
     const pages = finalDoc.getPages();
-    // this itinerary is small enough that its main content is a single page, so the appendix
-    // (built via pdf-lib) starts on the very next one
+    // main content (1 page) + appendix index (1 page) + the attachment's own 2 copied pages
+    expect(pages).toHaveLength(4);
     const mainPage = pages[0];
-    const appendixPage = pages[1];
+    const attachmentFirstPage = pages[2]; // NOT the index page (pages[1]) - the content itself
 
     const annots = mainPage.node.Annots();
     expect(annots?.size()).toBe(1);
@@ -238,15 +239,31 @@ describe("PDF appendix", () => {
     expect(annotDict.get(PDFName.of("Subtype")).toString()).toBe("/Link");
 
     const dest = annotDict.get(PDFName.of("Dest"));
-    expect(dest.get(0)).toBe(appendixPage.ref);
-    expect(dest.get(1).toString()).toBe("/XYZ"); // an exact scroll position, not just "/Fit" the page
-    expect(dest.get(3).asNumber()).toBeGreaterThan(0); // a real target Y, not near the page's own origin
+    expect(dest.get(0)).toBe(attachmentFirstPage.ref);
+    expect(dest.get(1).toString()).toBe("/Fit"); // fit the attachment's own page - we don't control its layout
 
     // and it's positioned over the actual "(see Appendix A1)" line, not somewhere arbitrary
     const rect = annotDict.get(PDFName.of("Rect")).asArray().map((n) => n.asNumber());
     expect(rect[0]).toBeGreaterThanOrEqual(40); // MARGIN
     expect(rect[2]).toBeLessThanOrEqual(595.28 - 40); // within page content width
     expect(rect[1]).toBeLessThan(rect[3]); // bottom < top, a real non-degenerate box
+  });
+
+  test("falls back to linking the index row when a PDF couldn't be merged", async () => {
+    await exportItineraryToPdf(
+      itineraryWithStop({
+        attachments: [attachment({ name: "broken.pdf", url: "https://example.com/throws", contentType: "application/pdf" })],
+      })
+    );
+
+    const finalDoc = await PDFDocument.load(global.downloadedBytes);
+    const appendixPage = finalDoc.getPages()[1]; // no content was merged, so this is the only extra page
+    const mainPage = finalDoc.getPages()[0];
+
+    const annotDict = finalDoc.context.lookup(mainPage.node.Annots().get(0));
+    const dest = annotDict.get(PDFName.of("Dest"));
+    expect(dest.get(0)).toBe(appendixPage.ref);
+    expect(dest.get(1).toString()).toBe("/XYZ"); // its index row's exact position, not just "/Fit" the page
   });
 
   test("numbers references sequentially across stops and merges every attached PDF's pages", async () => {
@@ -263,20 +280,17 @@ describe("PDF appendix", () => {
     expect(mockCalls.text.some((t) => t.includes("a.pdf") && t.includes("see Appendix A1"))).toBe(true);
     expect(mockCalls.text.some((t) => t.includes("b.pdf") && t.includes("see Appendix A2"))).toBe(true);
 
-    // 1 placeholder "main" page + 1 appendix index page + 2 pages from doc-a + 1 page from doc-b
+    // pages[0] main content, pages[1] appendix index, pages[2-3] doc-a's 2 pages, pages[4] doc-b's page
     const finalDoc = await PDFDocument.load(global.downloadedBytes);
-    expect(finalDoc.getPageCount()).toBe(1 + 1 + 2 + 1);
+    const pages = finalDoc.getPages();
+    expect(pages).toHaveLength(1 + 1 + 2 + 1);
 
-    // each reference links to its OWN row, not just "the appendix" generically - A1 (listed
-    // first, higher up the page) should target a larger Y than A2 (listed below it)
-    const mainPage = finalDoc.getPages()[0];
-    const annots = mainPage.node.Annots();
+    // each reference links straight to its OWN attachment's content, not to the shared index page
+    const annots = pages[0].node.Annots();
     expect(annots.size()).toBe(2);
-    const targetYOf = (i) => {
-      const annotDict = finalDoc.context.lookup(annots.get(i));
-      return annotDict.get(PDFName.of("Dest")).get(3).asNumber();
-    };
-    expect(targetYOf(0)).toBeGreaterThan(targetYOf(1));
+    const targetRefOf = (i) => finalDoc.context.lookup(annots.get(i)).get(PDFName.of("Dest")).get(0);
+    expect(targetRefOf(0)).toBe(pages[2].ref); // A1 -> doc-a.pdf's own first page
+    expect(targetRefOf(1)).toBe(pages[4].ref); // A2 -> doc-b.pdf's own first page
   });
 
   test("marks an unmergeable PDF as unavailable instead of failing the whole export", async () => {
