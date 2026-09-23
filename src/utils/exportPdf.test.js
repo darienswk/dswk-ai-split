@@ -1,4 +1,4 @@
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFName } from "pdf-lib";
 import { classifyAttachment, exportItineraryToPdf, getImageDimensions, sanitizeFilename } from "./exportPdf";
 import { createItinerary } from "./itinerary";
 
@@ -216,6 +216,36 @@ describe("PDF appendix", () => {
     expect(mockCalls.text.some((t) => t.includes("boarding-pass.pdf") && t.includes("see Appendix A1"))).toBe(true);
     // no jsPDF-level save when there IS an appendix - pdf-lib produces and downloads the final file
     expect(mockCalls.save).toBeNull();
+  });
+
+  test("the inline reference is a clickable link that jumps to where the appendix starts", async () => {
+    await exportItineraryToPdf(
+      itineraryWithStop({
+        attachments: [attachment({ name: "boarding-pass.pdf", url: "https://example.com/doc-a.pdf", contentType: "application/pdf" })],
+      })
+    );
+
+    const finalDoc = await PDFDocument.load(global.downloadedBytes);
+    const pages = finalDoc.getPages();
+    // this itinerary is small enough that its main content is a single page, so the appendix
+    // (built via pdf-lib) starts on the very next one
+    const mainPage = pages[0];
+    const appendixPage = pages[1];
+
+    const annots = mainPage.node.Annots();
+    expect(annots?.size()).toBe(1);
+    const annotDict = finalDoc.context.lookup(annots.get(0));
+    expect(annotDict.get(PDFName.of("Subtype")).toString()).toBe("/Link");
+
+    const dest = annotDict.get(PDFName.of("Dest"));
+    const targetRef = dest.get(0);
+    expect(targetRef).toBe(appendixPage.ref);
+
+    // and it's positioned over the actual "(see Appendix A1)" line, not somewhere arbitrary
+    const rect = annotDict.get(PDFName.of("Rect")).asArray().map((n) => n.asNumber());
+    expect(rect[0]).toBeGreaterThanOrEqual(40); // MARGIN
+    expect(rect[2]).toBeLessThanOrEqual(595.28 - 40); // within page content width
+    expect(rect[1]).toBeLessThan(rect[3]); // bottom < top, a real non-degenerate box
   });
 
   test("numbers references sequentially across stops and merges every attached PDF's pages", async () => {

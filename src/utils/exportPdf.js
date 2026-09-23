@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, PDFName, StandardFonts, rgb } from "pdf-lib";
 import { formatDate, getItemType } from "./itinerary";
 
 // A4 in points, matching jsPDF's default "pt"/"a4" combination.
@@ -74,6 +74,25 @@ function bytesToDataUrl(bytes, contentType) {
   return `data:${contentType};base64,${btoa(binary)}`;
 }
 
+// Adds a clickable "jump to another page in this document" annotation. pdf-lib has no
+// higher-level helper for this, so the Link annotation is built by hand per the PDF spec.
+function addInternalLink(context, sourcePage, rect, targetPage) {
+  const dict = context.obj({
+    Type: "Annot",
+    Subtype: "Link",
+    Rect: [rect.x1, rect.y1, rect.x2, rect.y2],
+    Border: [0, 0, 0], // no visible box around the (already-styled) text
+    Dest: context.obj([targetPage.ref, PDFName.of("Fit")]),
+  });
+  const ref = context.register(dict);
+  const existingAnnots = sourcePage.node.Annots();
+  if (existingAnnots) {
+    existingAnnots.push(ref);
+  } else {
+    sourcePage.node.set(PDFName.of("Annots"), context.obj([ref]));
+  }
+}
+
 function downloadBytes(bytes, filename) {
   const blob = new Blob([bytes], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
@@ -92,6 +111,7 @@ export async function exportItineraryToPdf(itinerary) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   let y = MARGIN;
   const pdfAppendix = []; // { ref, stopTitle, name, url }
+  const appendixLinkSources = []; // bounding boxes of "(see Appendix Ax)" mentions, for linking later
 
   const ensureSpace = (needed) => {
     if (y + needed > PAGE_HEIGHT - MARGIN - FOOTER_SPACE) {
@@ -101,6 +121,7 @@ export async function exportItineraryToPdf(itinerary) {
   };
 
   // Writes wrapped text, reserving space first so a block never splits mid-way without warning.
+  // Returns the bounding box of what it just drew, in case the caller wants to turn it into a link.
   const write = (text, { size = 10, style = "normal", color = INK, indent = 0, gap = 4 } = {}) => {
     doc.setFont("helvetica", style);
     doc.setFontSize(size);
@@ -108,8 +129,12 @@ export async function exportItineraryToPdf(itinerary) {
     const lines = doc.splitTextToSize(String(text), CONTENT_WIDTH - indent);
     const lineHeight = size * 1.28;
     ensureSpace(lines.length * lineHeight + gap);
+    const pageIndex = doc.internal.getNumberOfPages() - 1;
+    const yTop = y;
+    const blockHeight = lines.length * lineHeight;
     lines.forEach((line, i) => doc.text(line, MARGIN + indent, y + i * lineHeight));
-    y += lines.length * lineHeight + gap;
+    y += blockHeight + gap;
+    return { pageIndex, x: MARGIN + indent, yTop, width: CONTENT_WIDTH - indent, height: blockHeight };
   };
 
   // Fetches and embeds an image attachment inline; falls back to a text note if that fails or
@@ -200,12 +225,13 @@ export async function exportItineraryToPdf(itinerary) {
         } else if (kind === "pdf") {
           const ref = `A${pdfAppendix.length + 1}`;
           pdfAppendix.push({ ref, stopTitle: item.title, name: attachment.name, url: attachment.url });
-          write(`Document: ${attachment.name} (see Appendix ${ref})`, {
+          const box = write(`Document: ${attachment.name} (see Appendix ${ref})`, {
             size: 9.5,
             color: MUTED,
             indent: STOP_INDENT,
             gap: 2,
           });
+          appendixLinkSources.push(box);
         }
       }
       y += 6;
@@ -231,12 +257,27 @@ export async function exportItineraryToPdf(itinerary) {
 
   // Hand off to pdf-lib, which (unlike jsPDF) can import pages from other PDF files.
   const finalDoc = await PDFDocument.load(doc.output("arraybuffer"));
-  await appendPdfAttachments(finalDoc, pdfAppendix);
+  const appendixStartPage = await appendPdfAttachments(finalDoc, pdfAppendix);
+
+  // Make every "(see Appendix Ax)" mention a clickable link to where the appendix starts. All of
+  // them share one target rather than each entry's own row, so this still works even if the
+  // appendix index itself later overflows onto a second page.
+  const mainPages = finalDoc.getPages();
+  appendixLinkSources.forEach((box) => {
+    addInternalLink(
+      finalDoc.context,
+      mainPages[box.pageIndex],
+      { x1: box.x, y1: PAGE_HEIGHT - box.yTop - box.height, x2: box.x + box.width, y2: PAGE_HEIGHT - box.yTop },
+      appendixStartPage
+    );
+  });
+
   downloadBytes(await finalDoc.save(), filename);
 }
 
 // Adds an "Appendix" index page listing each reference, then merges every attached PDF's own
-// pages onto the end, in the same order they were referenced.
+// pages onto the end, in the same order they were referenced. Returns the first appendix page,
+// which is where inline "(see Appendix Ax)" links jump to.
 async function appendPdfAttachments(finalDoc, appendixItems) {
   const font = await finalDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await finalDoc.embedFont(StandardFonts.HelveticaBold);
@@ -244,6 +285,7 @@ async function appendPdfAttachments(finalDoc, appendixItems) {
   const muted = rgb(...MUTED.map((c) => c / 255));
 
   let page = finalDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+  const firstPage = page; // stable target for inline links, regardless of later pagination here
   let y = PAGE_HEIGHT - MARGIN;
   const newPage = () => {
     page = finalDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
@@ -276,4 +318,6 @@ async function appendPdfAttachments(finalDoc, appendixItems) {
   });
 
   results.forEach(({ copied }) => copied && copied.forEach((p) => finalDoc.addPage(p)));
+
+  return firstPage;
 }
