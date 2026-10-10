@@ -3,7 +3,7 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   closestCorners,
   useSensor,
@@ -33,9 +33,12 @@ export default function ItineraryTimeline({ itinerary, onChange }) {
   const days = draftDays || itinerary.days;
   const commit = (nextDays) => onChange({ ...itinerary, days: nextDays });
 
+  // MouseSensor + TouchSensor rather than PointerSensor: touch screens also fire pointer events,
+  // so a PointerSensor would start a drag from a plain swipe on the handle and bypass the
+  // press-and-hold below, which is what makes touch drags deliberate rather than accidental.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
