@@ -165,12 +165,65 @@ test("adding a stop persists it under its day; trips and itineraries are written
     time: "10:30",
     location: "Tower Hill",
     notes: "",
+    links: [],
     attachments: [],
   });
   expect(lastItineraries()[0].days[0].items).toEqual([]);
 
   // Each write touches exactly one field, so editing an itinerary never rewrites trips.
   mockWrites.forEach((w) => expect(Object.keys(w.data)).toHaveLength(1));
+});
+
+test("a stop can have many reference links, shown as chips", async () => {
+  render(<App />);
+  await openItineraries();
+  await createItinerary({ name: "UK Trip", start: "2026-11-23", end: "2026-11-25" });
+  await screen.findByRole("heading", { name: "UK Trip" });
+
+  const day1 = document.getElementById("itin-day-2026-11-23");
+  fireEvent.click(within(day1).getByRole("button", { name: "+ Add" }));
+  const modal = document.querySelector(".modal");
+  fireEvent.change(within(modal).getByPlaceholderText(/Edinburgh Castle/), { target: { value: "Borough Market" } });
+
+  const input = within(modal).getByPlaceholderText(/YouTube, TikTok/);
+  fireEvent.change(input, { target: { value: "https://www.youtube.com/watch?v=abc" } });
+  fireEvent.click(within(modal).getByRole("button", { name: "Add link" }));
+  // Enter adds a link without submitting the stop; a bare domain gets https://
+  fireEvent.change(input, { target: { value: "tiktok.com/@foodie/video/1" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(document.querySelector(".modal")).toBeInTheDocument();
+  // Left in the box at save time, still counts
+  fireEvent.change(input, { target: { value: "https://example.com/blog" } });
+  fireEvent.click(within(modal).getByRole("button", { name: "Add Stop" }));
+
+  await waitFor(() => expect(lastItineraries()[0].days[0].items).toHaveLength(1));
+  const { links } = lastItineraries()[0].days[0].items[0];
+  expect(links.map((l) => l.url)).toEqual([
+    "https://www.youtube.com/watch?v=abc",
+    "https://tiktok.com/@foodie/video/1",
+    "https://example.com/blog",
+  ]);
+
+  const card = document.querySelector(".itin-item");
+  expect(within(card).getByRole("link", { name: /YouTube/ })).toHaveAttribute("href", links[0].url);
+  expect(within(card).getByRole("link", { name: /TikTok/ })).toHaveAttribute("href", links[1].url);
+  expect(within(card).getByRole("link", { name: /example\.com/ })).toHaveAttribute("href", links[2].url);
+});
+
+test("an invalid link is rejected and blocks saving", async () => {
+  render(<App />);
+  await openItineraries();
+  await createItinerary({ name: "UK Trip", start: "2026-11-23", end: "2026-11-25" });
+  await screen.findByRole("heading", { name: "UK Trip" });
+
+  fireEvent.click(within(document.getElementById("itin-day-2026-11-23")).getByRole("button", { name: "+ Add" }));
+  const modal = document.querySelector(".modal");
+  fireEvent.change(within(modal).getByPlaceholderText(/Edinburgh Castle/), { target: { value: "Stop" } });
+  fireEvent.change(within(modal).getByPlaceholderText(/YouTube, TikTok/), { target: { value: "javascript:alert(1)" } });
+  fireEvent.click(within(modal).getByRole("button", { name: "Add Stop" }));
+
+  expect(await within(modal).findByText(/valid web link/)).toBeInTheDocument();
+  expect(lastItineraries()[0].days[0].items).toHaveLength(0);
 });
 
 test("loads saved itineraries (with or without trips) and lists them", async () => {

@@ -225,6 +225,10 @@ export async function exportItineraryToPdf(itinerary) {
         write(item.notes, { size: 9.5, style: "italic", color: MUTED, indent: STOP_INDENT, gap: 2 });
       }
 
+      for (const link of item.links || []) {
+        write(`Link: ${link.url}`, { size: 9.5, color: MUTED, indent: STOP_INDENT, gap: 2 });
+      }
+
       for (const attachment of item.attachments || []) {
         const kind = classifyAttachment(attachment);
         if (kind === "image") {

@@ -1532,6 +1532,21 @@ body {
   max-width: 220px;
 }
 
+/* Reference-link input inside the Add/Edit Stop form */
+.itin-link-add {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.itin-link-add input {
+  flex: 1;
+  min-width: 0;
+}
+
+.itin-link-add .btn {
+  flex-shrink: 0;
+}
+
 /* Attachment picker inside the Add/Edit Stop form */
 .itin-attachments {
   display: flex;

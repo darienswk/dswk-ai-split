@@ -5,10 +5,12 @@ import {
   deleteItem,
   getAllAttachments,
   getDateRange,
+  getLinkChip,
   getMapsLink,
   isImageAttachment,
   MAX_ITINERARY_DAYS,
   moveItemToDay,
+  normalizeLinkUrl,
   reorderWithinDay,
   resizeItinerary,
   saveItem,
@@ -217,5 +219,41 @@ describe("getAllAttachments", () => {
 
   test("returns an empty array when there are no attachments", () => {
     expect(getAllAttachments(createItinerary("2026-11-23", "2026-11-24"))).toEqual([]);
+  });
+});
+
+describe("normalizeLinkUrl", () => {
+  test("keeps valid http(s) links", () => {
+    expect(normalizeLinkUrl("https://youtu.be/abc123")).toBe("https://youtu.be/abc123");
+    expect(normalizeLinkUrl("  http://example.com/a?b=1  ")).toBe("http://example.com/a?b=1");
+  });
+
+  test("adds https:// to bare domains", () => {
+    expect(normalizeLinkUrl("tiktok.com/@user/video/1")).toBe("https://tiktok.com/@user/video/1");
+  });
+
+  test("rejects unsafe schemes, junk and empty input", () => {
+    expect(normalizeLinkUrl("javascript:alert(1)")).toBeNull();
+    expect(normalizeLinkUrl("data:text/html,hi")).toBeNull();
+    expect(normalizeLinkUrl("not a link")).toBeNull();
+    expect(normalizeLinkUrl("localhost")).toBeNull();
+    expect(normalizeLinkUrl("")).toBeNull();
+    expect(normalizeLinkUrl(undefined)).toBeNull();
+  });
+});
+
+describe("getLinkChip", () => {
+  test("names well-known sites", () => {
+    expect(getLinkChip("https://www.youtube.com/watch?v=x").label).toBe("YouTube");
+    expect(getLinkChip("https://youtu.be/x").label).toBe("YouTube");
+    expect(getLinkChip("https://vm.tiktok.com/abc").label).toBe("TikTok");
+  });
+
+  test("falls back to the hostname for other sites", () => {
+    expect(getLinkChip("https://www.example.com/post")).toEqual({
+      href: "https://www.example.com/post",
+      label: "example.com",
+      icon: "🔗",
+    });
   });
 });

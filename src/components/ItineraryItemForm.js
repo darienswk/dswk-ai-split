@@ -9,7 +9,9 @@ import {
   MAX_ATTACHMENT_SIZE,
   attachmentStoragePath,
   formatDate,
+  getLinkChip,
   isImageAttachment,
+  normalizeLinkUrl,
 } from "../utils/itinerary";
 
 // `item` is set when editing an existing stop; otherwise the form adds a new one to `dayId`.
@@ -27,6 +29,9 @@ export default function ItineraryItemForm({ days, dayId, item, itineraryId, stop
   const [selectedDay, setSelectedDay] = useState(dayId);
   const [attachments, setAttachments] = useState(item?.attachments || []);
   const [uploads, setUploads] = useState({}); // { [tempId]: { name, progress } }
+  const [links, setLinks] = useState(item?.links || []);
+  const [linkInput, setLinkInput] = useState("");
+  const [linkError, setLinkError] = useState("");
 
   // Attachments already on the item when the form opened - anything else added this session is
   // an "orphan" (uploaded but never saved) if the form is closed without saving, and gets deleted.
@@ -98,6 +103,33 @@ export default function ItineraryItemForm({ days, dayId, item, itineraryId, stop
     files.forEach(uploadFile);
   };
 
+  // Adds whatever is in the link box to the list. Returns the new list, or null if the text wasn't
+  // a valid link (an error is shown). Empty input is a no-op that returns the current list.
+  const commitLinkInput = () => {
+    const text = linkInput.trim();
+    if (!text) return links;
+    const url = normalizeLinkUrl(text);
+    if (!url) {
+      setLinkError("Enter a valid web link, e.g. https://youtube.com/...");
+      return null;
+    }
+    setLinkError("");
+    setLinkInput("");
+    if (links.some((l) => l.url === url)) return links;
+    const next = [...links, { id: uuidv4(), url }];
+    setLinks(next);
+    return next;
+  };
+
+  const handleLinkKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault(); // Enter adds the link rather than submitting the whole stop
+      commitLinkInput();
+    }
+  };
+
+  const handleRemoveLink = (link) => setLinks((list) => list.filter((l) => l.id !== link.id));
+
   const handleRemoveAttachment = (attachment) => {
     setAttachments((list) => list.filter((a) => a.id !== attachment.id));
     deleteObject(ref(storage, attachment.path)).catch((err) =>
@@ -118,6 +150,9 @@ export default function ItineraryItemForm({ days, dayId, item, itineraryId, stop
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim() || uploading) return;
+    // A link typed but not yet added still counts; an invalid one blocks saving so it isn't lost silently.
+    const finalLinks = commitLinkInput();
+    if (!finalLinks) return;
     savedRef.current = true;
     onSave(
       {
@@ -127,6 +162,7 @@ export default function ItineraryItemForm({ days, dayId, item, itineraryId, stop
         time,
         location: location.trim(),
         notes: notes.trim(),
+        links: finalLinks,
         attachments,
       },
       item
@@ -202,6 +238,46 @@ export default function ItineraryItemForm({ days, dayId, item, itineraryId, stop
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Booking ref, opening hours, tips..."
             />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="itin-link-input">Links</label>
+            {links.length > 0 && (
+              <div className="itin-attachments">
+                {links.map((l) => {
+                  const chip = getLinkChip(l.url);
+                  return (
+                    <div key={l.id} className="itin-attachment-chip">
+                      <a href={l.url} target="_blank" rel="noopener noreferrer" title={l.url}>
+                        <span aria-hidden="true">{chip.icon}</span>
+                        <span className="itin-attachment-name">{chip.label}</span>
+                      </a>
+                      <button type="button" onClick={() => handleRemoveLink(l)} aria-label={`Remove ${chip.label} link`}>
+                        &times;
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="itin-link-add">
+              <input
+                id="itin-link-input"
+                type="text"
+                inputMode="url"
+                value={linkInput}
+                onChange={(e) => {
+                  setLinkInput(e.target.value);
+                  setLinkError("");
+                }}
+                onKeyDown={handleLinkKeyDown}
+                placeholder="Paste a YouTube, TikTok or any web link"
+              />
+              <button type="button" className="btn btn-sm btn-secondary" onClick={commitLinkInput} disabled={!linkInput.trim()}>
+                Add link
+              </button>
+            </div>
+            {linkError && <p className="hint" style={{ color: "var(--danger)" }}>{linkError}</p>}
           </div>
 
           <div className="form-group">

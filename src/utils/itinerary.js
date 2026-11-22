@@ -102,6 +102,48 @@ export function getMapsLink(location) {
   };
 }
 
+// ==================== Reference links ====================
+// Each stop can carry any number of reference links (YouTube, TikTok, blog posts, ...), stored as
+// `links: [{ id, url }]` and shown as a row of chips. The label/icon are derived from the URL.
+const LINK_SITES = [
+  { match: /(^|\.)(youtube\.com|youtu\.be)$/, name: "YouTube", icon: "▶️" },
+  { match: /(^|\.)tiktok\.com$/, name: "TikTok", icon: "🎵" },
+  { match: /(^|\.)(instagram\.com|instagr\.am)$/, name: "Instagram", icon: "📷" },
+  { match: /(^|\.)(facebook\.com|fb\.com|fb\.watch)$/, name: "Facebook", icon: "👥" },
+  { match: /(^|\.)(twitter\.com|x\.com)$/, name: "X", icon: "💬" },
+  { match: /(^|\.)reddit\.com$/, name: "Reddit", icon: "💬" },
+  { match: /(^|\.)(tripadvisor\.[a-z.]+)$/, name: "Tripadvisor", icon: "🦉" },
+  { match: /(^|\.)(booking\.com|airbnb\.[a-z.]+)$/, name: "Booking", icon: "🛏️" },
+];
+
+// Turns whatever the user typed/pasted into a safe http(s) URL, or null if it isn't one.
+// A bare "youtube.com/watch?v=x" gets https:// added; other schemes (javascript:, data:) are rejected.
+export function normalizeLinkUrl(input) {
+  const text = (input || "").trim();
+  if (!text || /\s/.test(text)) return null;
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`;
+  try {
+    const url = new URL(withScheme);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    if (!url.hostname.includes(".")) return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+// Chip presentation for a reference link: { href, label, icon }.
+export function getLinkChip(url) {
+  try {
+    const { hostname } = new URL(url);
+    const host = hostname.replace(/^www\./, "");
+    const site = LINK_SITES.find((s) => s.match.test(host));
+    return { href: url, label: site ? site.name : host, icon: site ? site.icon : "🔗" };
+  } catch {
+    return { href: url, label: url, icon: "🔗" };
+  }
+}
+
 export function countStops(itinerary) {
   return itinerary.days.reduce((n, d) => n + d.items.length, 0);
 }
