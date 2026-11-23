@@ -12,6 +12,8 @@ jest.mock("./utils/exportPdf", () => ({ exportItineraryToPdf: jest.fn() }));
 const mockStore = new Map();
 let mockWrites = [];
 let mockDeletedPaths = [];
+// When set, the next getDoc call rejects with this error (then it is cleared).
+let mockGetDocError = null;
 
 // uuid v14 is ESM-only, which this project's Jest setup can't parse.
 let mockIdCounter = 0;
@@ -50,10 +52,17 @@ jest.mock("firebase/auth", () => ({
 
 jest.mock("firebase/firestore", () => ({
   doc: (db, collection, id) => `${collection}/${id}`,
-  getDoc: async (ref) => ({
+  getDoc: async (ref) => {
+    if (mockGetDocError) {
+      const err = mockGetDocError;
+      mockGetDocError = null;
+      throw err;
+    }
+    return {
     exists: () => mockStore.has(ref),
     data: () => JSON.parse(JSON.stringify(mockStore.get(ref))),
-  }),
+    };
+  },
   setDoc: async (ref, data, options) => {
     // Firestore rejects `undefined` field values, so round-trip through JSON to catch them.
     expect(JSON.parse(JSON.stringify(data))).toEqual(data);
@@ -98,6 +107,7 @@ beforeEach(() => {
   mockWrites = [];
   mockDeletedPaths = [];
   mockIdCounter = 0;
+  mockGetDocError = null;
   window.confirm = () => true;
   window.alert = jest.fn();
 });
@@ -251,6 +261,58 @@ test("loads saved itineraries (with or without trips) and lists them", async () 
   fireEvent.click(screen.getByText("Scotland"));
   expect(await screen.findByDisplayValue("Edinburgh")).toBeInTheDocument();
   expect(screen.getByText(/Castle/)).toBeInTheDocument();
+});
+
+describe("load failures never overwrite saved data", () => {
+  const savedTrip = {
+    id: "t-1",
+    name: "Japan",
+    description: "",
+    defaultCurrency: "SGD",
+    members: [{ id: "m1", name: "Alice" }],
+    expenses: [],
+    settlements: [],
+    isSettled: false,
+    createdAt: "2026-09-21T00:00:00.000Z",
+  };
+  const savedItinerary = {
+    id: "it-1",
+    name: "Scotland",
+    description: "",
+    startDate: "2026-12-01",
+    endDate: "2026-12-01",
+    createdAt: "2026-09-21T00:00:00.000Z",
+    days: [{ id: "2026-12-01", city: "", items: [] }],
+  };
+
+  test("a failed initial read shows a retry screen and writes nothing to Firestore", async () => {
+    mockStore.set("users/u1", { trips: [savedTrip], itineraries: [savedItinerary] });
+    mockGetDocError = new Error("Failed to get document because the client is offline.");
+
+    render(<App />);
+    expect(await screen.findByText(/Couldn't load your trips/)).toBeInTheDocument();
+    expect(screen.getByText(/client is offline/)).toBeInTheDocument();
+
+    // Give any (buggy) save effects a chance to run.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockWrites).toEqual([]);
+    expect(mockStore.get("users/u1")).toEqual({ trips: [savedTrip], itineraries: [savedItinerary] });
+
+    // Retrying loads the untouched data.
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Japan")).toBeInTheDocument();
+    await openItineraries();
+    expect(await screen.findByText("Scotland")).toBeInTheDocument();
+    expect(mockWrites).toEqual([]);
+  });
+
+  test("simply loading existing data does not write it back", async () => {
+    mockStore.set("users/u1", { trips: [savedTrip], itineraries: [savedItinerary] });
+    render(<App />);
+    expect(await screen.findByText("Japan")).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockWrites).toEqual([]);
+  });
 });
 
 test("old user documents without an itineraries field still load", async () => {
