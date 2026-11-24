@@ -16,6 +16,9 @@ const SPLIT_TYPES = [
   { value: "percentage", label: "%" },
 ];
 
+// "Paid by" option meaning everyone in the split paid their own share (stored as paidByEach).
+const EACH_PAID_OWN = "__each__";
+
 function initSplitDetails(members, splitType, amount) {
   const details = {};
   if (members.length === 0) return details;
@@ -44,7 +47,9 @@ export default function AddExpense({ trip, onClose, expense }) {
   const [amount, setAmount] = useState(expense ? String(expense.amount) : "");
   const [currency, setCurrency] = useState(expense?.currency || trip.defaultCurrency);
   const [category, setCategory] = useState(expense?.category || "General");
-  const [paidBy, setPaidBy] = useState(expense?.paidBy || trip.members[0]?.id || "");
+  const [paidBy, setPaidBy] = useState(
+    expense?.paidByEach ? EACH_PAID_OWN : expense?.paidBy || trip.members[0]?.id || ""
+  );
   const [splitAmong, setSplitAmong] = useState(
     expense?.splitAmong || trip.members.map((m) => m.id)
   );
@@ -130,7 +135,9 @@ export default function AddExpense({ trip, onClose, expense }) {
       amount: parsedAmount,
       currency,
       category,
-      paidBy,
+      // Always set both, so editing an expense between the two modes overwrites the old value.
+      paidBy: paidBy === EACH_PAID_OWN ? null : paidBy,
+      paidByEach: paidBy === EACH_PAID_OWN,
       splitAmong,
       splitType,
     };
@@ -234,7 +241,14 @@ export default function AddExpense({ trip, onClose, expense }) {
                   {m.name}
                 </option>
               ))}
+              <option value={EACH_PAID_OWN}>Each paid their own share</option>
             </select>
+            {paidBy === EACH_PAID_OWN && (
+              <p className="hint">
+                Everyone below paid for themselves (e.g. tapped their own card), so this counts
+                towards spending but no one owes anyone for it.
+              </p>
+            )}
           </div>
 
           <div className="form-group">

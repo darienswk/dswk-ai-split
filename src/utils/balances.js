@@ -16,6 +16,23 @@ function getMemberShare(expense, memberId) {
 }
 
 /**
+ * True when everyone in the split paid their own share themselves (e.g. each person tapped their
+ * own card on transport). Such an expense counts towards spending but creates no debts.
+ */
+export function isPaidByEach(expense) {
+  return !!expense.paidByEach;
+}
+
+/**
+ * How much a member paid towards an expense: the whole amount for the single payer, or their own
+ * share when everyone paid their own share.
+ */
+export function getMemberPaid(expense, memberId) {
+  if (isPaidByEach(expense)) return getMemberShare(expense, memberId);
+  return expense.paidBy === memberId ? expense.amount : 0;
+}
+
+/**
  * Calculate net balances for each member from a list of expenses.
  * Returns a map: memberId -> net amount (positive = is owed, negative = owes)
  */
@@ -24,11 +41,14 @@ export function calculateNetBalances(expenses, members) {
   members.forEach((m) => (balances[m.id] = 0));
 
   expenses.forEach((expense) => {
-    const { paidBy, amount, splitAmong } = expense;
+    const { paidBy, splitAmong } = expense;
     if (!splitAmong || splitAmong.length === 0) return;
 
-    // The payer is owed money
-    balances[paidBy] = (balances[paidBy] || 0) + amount;
+    // Whoever paid is owed what they paid (the single payer, or each participant their own share)
+    const payers = isPaidByEach(expense) ? splitAmong : [paidBy];
+    payers.forEach((memberId) => {
+      balances[memberId] = (balances[memberId] || 0) + getMemberPaid(expense, memberId);
+    });
 
     // Each participant owes their share
     splitAmong.forEach((memberId) => {
