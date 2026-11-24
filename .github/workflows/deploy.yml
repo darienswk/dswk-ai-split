@@ -3,6 +3,10 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  # Lets a deploy be started by hand (Actions > Deploy to GitHub Pages > Run workflow).
+  # Use this instead of "Re-run" if a deploy fails: a re-run reuses the same run, whose earlier
+  # "github-pages" artifact is still there, so deploy-pages finds two and fails.
+  workflow_dispatch:
 
 permissions:
   contents: read
