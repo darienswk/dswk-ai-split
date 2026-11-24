@@ -2,10 +2,12 @@ import React from "react";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import App from "./App";
 import { exportItineraryToPdf } from "./utils/exportPdf";
+import { exportTripToPdf } from "./utils/exportTripPdf";
 
 // A factory mock (rather than automock) never loads the real module, which pulls in jsPDF's
 // PNG decoder and needs a `TextEncoder` global this jsdom test environment doesn't provide.
 jest.mock("./utils/exportPdf", () => ({ exportItineraryToPdf: jest.fn() }));
+jest.mock("./utils/exportTripPdf", () => ({ exportTripToPdf: jest.fn() }));
 
 // In-memory stand-ins for Firestore and Storage that record every write. Names start with
 // "mock" so jest allows the factories below to reference them.
@@ -510,5 +512,27 @@ test("Export PDF hands the current itinerary to the PDF exporter", async () => {
   expect(exportItineraryToPdf).toHaveBeenCalledWith(
     expect.objectContaining({ name: "UK Trip", startDate: "2026-11-23", endDate: "2026-11-24" })
   );
+  await waitFor(() => expect(screen.getByRole("button", { name: "Export PDF" })).not.toBeDisabled());
+});
+
+test("Export PDF on a trip hands the current trip to the trip PDF exporter", async () => {
+  const trip = {
+    id: "t-1",
+    name: "Japan",
+    description: "",
+    defaultCurrency: "SGD",
+    members: [{ id: "m1", name: "Alice" }],
+    expenses: [],
+    settlements: [],
+    isSettled: false,
+    createdAt: "2026-09-21T00:00:00.000Z",
+  };
+  mockStore.set("users/u1", { trips: [trip], itineraries: [] });
+  render(<App />);
+  fireEvent.click(await screen.findByText("Japan"));
+  fireEvent.click(await screen.findByRole("button", { name: "Export PDF" }));
+
+  await waitFor(() => expect(exportTripToPdf).toHaveBeenCalledTimes(1));
+  expect(exportTripToPdf).toHaveBeenCalledWith(expect.objectContaining({ id: "t-1", name: "Japan" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Export PDF" })).not.toBeDisabled());
 });

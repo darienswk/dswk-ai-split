@@ -15,6 +15,7 @@ export default function TripDetail() {
   const [editingExpense, setEditingExpense] = useState(null);
   const [showAddMember, setShowAddMember] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   if (!trip) {
     return (
@@ -50,6 +51,20 @@ export default function TripDetail() {
     }
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      // Loaded on demand so jsPDF isn't part of the main bundle.
+      const { exportTripToPdf } = await import("../utils/exportTripPdf");
+      await exportTripToPdf(trip);
+    } catch (err) {
+      console.error("Failed to export trip to PDF:", err);
+      window.alert("Sorry, the PDF export failed. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleDeleteTrip = () => {
     if (window.confirm(`Delete "${trip.name}"? This cannot be undone.`)) {
       dispatch({ type: "DELETE_TRIP", payload: { tripId: trip.id } });
@@ -72,6 +87,15 @@ export default function TripDetail() {
           </h1>
           {trip.description && <p className="trip-desc">{trip.description}</p>}
         </div>
+        <button
+          type="button"
+          className="btn btn-sm btn-secondary"
+          onClick={handleExport}
+          disabled={exporting}
+          title="Download a PDF of this trip's expenses"
+        >
+          {exporting ? "Exporting…" : "Export PDF"}
+        </button>
         <button className="btn btn-danger-sm" onClick={handleDeleteTrip} title="Delete trip">
           Delete Trip
         </button>
