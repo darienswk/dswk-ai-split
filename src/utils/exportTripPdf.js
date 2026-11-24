@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { calculatePerCurrencyBalances, getMemberShare } from "./balances";
+import { calculatePerCurrencyBalances, getMemberPaid, getMemberShare } from "./balances";
 import { sanitizeFilename } from "./exportPdf";
 
 // A4 in points, matching the itinerary export.
@@ -72,7 +72,7 @@ export function buildTripReport(trip) {
     const { debts, total } = perCurrency[currency];
 
     const memberRows = members.map((m) => {
-      const paid = curExpenses.filter((e) => e.paidBy === m.id).reduce((s, e) => s + e.amount, 0);
+      const paid = curExpenses.reduce((s, e) => s + getMemberPaid(e, m.id), 0);
       const share = curExpenses.reduce((s, e) => s + getMemberShare(e, m.id), 0);
       return { name: m.name, paid: round2(paid), share: round2(share), net: round2(paid - share) };
     });
@@ -108,7 +108,7 @@ export function buildTripReport(trip) {
     date: formatDay(e.createdAt),
     description: e.description || "",
     category: e.category || "General",
-    paidBy: memberName(e.paidBy),
+    paidBy: e.paidByEach ? "Each paid own share" : memberName(e.paidBy),
     amount: formatAmount(e.amount, e.currency || "USD"),
     split: describeSplit(e, members, memberName),
   }));

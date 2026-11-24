@@ -536,3 +536,71 @@ test("Export PDF on a trip hands the current trip to the trip PDF exporter", asy
   expect(exportTripToPdf).toHaveBeenCalledWith(expect.objectContaining({ id: "t-1", name: "Japan" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Export PDF" })).not.toBeDisabled());
 });
+
+test("an expense can be marked as each paid their own share, which adds no debts", async () => {
+  const trip = {
+    id: "t-1",
+    name: "Japan",
+    description: "",
+    defaultCurrency: "SGD",
+    members: [
+      { id: "m1", name: "Alice" },
+      { id: "m2", name: "Bob" },
+    ],
+    expenses: [
+      {
+        id: "e1",
+        description: "Dinner",
+        amount: 40,
+        currency: "SGD",
+        category: "Dining",
+        paidBy: "m1",
+        splitAmong: ["m1", "m2"],
+        splitType: "equal",
+        createdAt: "2026-11-01T00:00:00.000Z",
+      },
+    ],
+    settlements: [],
+    isSettled: false,
+    createdAt: "2026-09-21T00:00:00.000Z",
+  };
+  mockStore.set("users/u1", { trips: [trip], itineraries: [] });
+  render(<App />);
+  fireEvent.click(await screen.findByText("Japan"));
+
+  // Add the expense with "Each paid their own share"
+  fireEvent.click(await screen.findByRole("button", { name: "+ Add Expense" }));
+  const modal = document.querySelector(".modal");
+  fireEvent.change(within(modal).getByPlaceholderText(/Dinner at restaurant/), { target: { value: "Train" } });
+  fireEvent.change(within(modal).getByPlaceholderText("0.00"), { target: { value: "10" } });
+  const paidBySelect = within(modal).getByDisplayValue("Alice");
+  fireEvent.change(paidBySelect, { target: { value: "__each__" } });
+  expect(within(modal).getByText(/no one owes anyone for it/)).toBeInTheDocument();
+  fireEvent.click(within(modal).getByRole("button", { name: "Add Expense" }));
+
+  await waitFor(() => expect(mockStore.get("users/u1").trips[0].expenses).toHaveLength(2));
+  expect(mockStore.get("users/u1").trips[0].expenses[1]).toMatchObject({
+    description: "Train",
+    amount: 10,
+    paidBy: null,
+    paidByEach: true,
+    splitAmong: ["m1", "m2"],
+  });
+  expect(screen.getByText(/Each paid their own share/)).toBeInTheDocument();
+
+  // Balances only reflect the dinner: Bob owes Alice 20, and the train fare changes nothing.
+  fireEvent.click(screen.getByRole("button", { name: "Balances" }));
+  expect(screen.getByText("gets back S$20.00")).toBeInTheDocument();
+  expect(screen.getByText("owes S$20.00")).toBeInTheDocument();
+  expect(screen.getByText(/Total: S\$50\.00/)).toBeInTheDocument();
+
+  // Editing it back to a single payer clears the flag.
+  fireEvent.click(screen.getByRole("button", { name: /Expenses/ }));
+  fireEvent.click(screen.getByText("Train"));
+  const editModal = document.querySelector(".modal");
+  fireEvent.change(within(editModal).getByDisplayValue("Each paid their own share"), { target: { value: "m2" } });
+  fireEvent.click(within(editModal).getByRole("button", { name: "Save Changes" }));
+  await waitFor(() =>
+    expect(mockStore.get("users/u1").trips[0].expenses[1]).toMatchObject({ paidBy: "m2", paidByEach: false })
+  );
+});

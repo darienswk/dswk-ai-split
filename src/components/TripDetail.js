@@ -215,7 +215,14 @@ export default function TripDetail() {
                           )}
                         </h4>
                         <p className="expense-meta">
-                          Paid by <strong>{memberMap[exp.paidBy]}</strong> &middot; Split among{" "}
+                          {exp.paidByEach ? (
+                            <>Each paid their own share</>
+                          ) : (
+                            <>
+                              Paid by <strong>{memberMap[exp.paidBy]}</strong>
+                            </>
+                          )}{" "}
+                          &middot; Split among{" "}
                           {exp.splitAmong.length === trip.members.length
                             ? "everyone"
                             : exp.splitAmong.map((id) => memberMap[id]).join(", ")}

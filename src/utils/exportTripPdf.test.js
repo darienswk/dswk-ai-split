@@ -164,6 +164,34 @@ describe("buildTripReport", () => {
     expect(rows[2].amount).toBe("JPY 10,000.00");
   });
 
+  test("an each-paid-own-share expense counts as paid by each person and adds no debts", () => {
+    const fares = {
+      id: "e4",
+      description: "MRT fares",
+      amount: 12,
+      currency: "SGD",
+      category: "Transport",
+      paidBy: null,
+      paidByEach: true,
+      splitAmong: ["a", "b"],
+      splitType: "exact",
+      splitDetails: { a: 5, b: 7 },
+      createdAt: "2026-11-05T10:00:00.000Z",
+    };
+    const report = buildTripReport({ ...trip, expenses: [...trip.expenses, fares] });
+    const sgd = report.sections[0];
+    expect(sgd.total).toBe(402);
+    expect(sgd.memberRows).toEqual([
+      { name: "Alice", paid: 305, share: 165, net: 140 },
+      { name: "Bob", paid: 97, share: 137, net: -40 },
+      { name: "Cara", paid: 0, share: 100, net: -100 },
+    ]);
+    // Same payments as without the fares.
+    expect(sgd.payments).toEqual(buildTripReport(trip).sections[0].payments);
+    expect(sgd.categoryRows.find((c) => c.category === "Transport")).toMatchObject({ amount: 12, count: 1 });
+    expect(report.expenseRows[3]).toMatchObject({ paidBy: "Each paid own share", split: "Alice 5.00, Bob 7.00" });
+  });
+
   test("tolerates missing fields and members that no longer exist", () => {
     const report = buildTripReport({
       name: "",
